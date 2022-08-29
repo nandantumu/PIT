@@ -5,7 +5,6 @@ class Dynamics(nn.Module):
     """Base Class for dynamics"""
     def __init__(self) -> None:
         super().__init__()
-        raise NotImplementedError
 
     def forward(self, states, inputs):
         """
