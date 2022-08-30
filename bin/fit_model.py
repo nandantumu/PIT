@@ -43,7 +43,7 @@ target_states = target_states.contiguous()#.unsqueeze(0)
 print(f"Inputs size: {control_inputs.shape} | States size: {target_states.shape}")
 # %%
 dynamics = Bicycle(4)
-integrator = Euler(dynamics, timestep=timestep)
+integrator = RK4(dynamics, timestep=timestep)
 
 output_states = integrator(initial_state, control_inputs)
 # %%

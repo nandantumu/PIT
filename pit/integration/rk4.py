@@ -25,9 +25,13 @@ class RK4(nn.Module):
             raise ValueError("Control inputs are not in the correct shape") 
         
         state_dims = initial_state.shape[-1]
-        output_shape = list(control_inputs.shape)
-        output_shape[-1] = state_dims
-        integrated_states = torch.zeros(output_shape)
+        input_dims = control_inputs.shape[-1]
+        if batch_mode:
+            B, L, _ = control_inputs.shape
+        else:
+            L, _ = control_inputs.shape
+
+        integrated_states = list()
 
         if batch_mode:
             k1 = self.dynamics(initial_state, control_inputs[:,0])
@@ -38,17 +42,20 @@ class RK4(nn.Module):
             k4_state = initial_state + self.timestep * k3
             k4 = self.dynamics(k4_state, control_inputs[:,0])
 
-            integrated_states[:,0] = initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6
+            integrated_states.append(initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6)
 
             for i in range(1, control_inputs.shape[1]):
-                k1 = self.dynamics(integrated_states[:,i-1], control_inputs[:,i])
-                k2_state = integrated_states[:,i-1] + self.timestep * k1 / 2
-                k2 = self.dynamics(integrated_states[:,i-1], control_inputs[:,i])
-                k3_state = integrated_states[:,i-1] + self.timestep * k2 / 2
-                k3 = self.dynamics(integrated_states[:,i-1], control_inputs[:,i])
-                k4_state = integrated_states[:,i-1] + self.timestep * k3
-                k4 = self.dynamics(integrated_states[:,i-1], control_inputs[:,i])
-                integrated_states[:,i] = initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6
+                k1 = self.dynamics(integrated_states[i-1], control_inputs[:,i])
+                k2_state = integrated_states[i-1] + self.timestep * k1 / 2
+                k2 = self.dynamics(integrated_states[i-1], control_inputs[:,i])
+                k3_state = integrated_states[i-1] + self.timestep * k2 / 2
+                k3 = self.dynamics(integrated_states[i-1], control_inputs[:,i])
+                k4_state = integrated_states[i-1] + self.timestep * k3
+                k4 = self.dynamics(integrated_states[i-1], control_inputs[:,i])
+                integrated_states.append(initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6)
+            
+            integrated_states = torch.stack(integrated_states, dim=1)
+            assert(list(integrated_states.shape) == [control_inputs.shape[0], control_inputs.shape[1], state_dims])
         
         else:
             k1 = self.dynamics(initial_state, control_inputs[0])
@@ -59,7 +66,7 @@ class RK4(nn.Module):
             k4_state = initial_state + self.timestep * k3
             k4 = self.dynamics(k4_state, control_inputs[0])
 
-            integrated_states[0] = initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6
+            integrated_states.append(initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6)
 
             for i in range(1, control_inputs.shape[0]):
                 k1 = self.dynamics(integrated_states[i-1], control_inputs[i])
@@ -69,6 +76,9 @@ class RK4(nn.Module):
                 k3 = self.dynamics(integrated_states[i-1], control_inputs[i])
                 k4_state = integrated_states[i-1] + self.timestep * k3
                 k4 = self.dynamics(integrated_states[i-1], control_inputs[i])
-                integrated_states[i] = initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6
+                integrated_states.append(initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6)
+            
+            integrated_states = torch.stack(integrated_states, dim=0)
+            assert(list(integrated_states.shape) == [control_inputs.shape[0], state_dims])
         
         return integrated_states
