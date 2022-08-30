@@ -5,4 +5,5 @@ setup(name='PIT',
       author='Nandan Tumu',
       author_email='nandan.t@live.com',
       url='https://nandantumu.com',
+      packages=['pit']
       )
