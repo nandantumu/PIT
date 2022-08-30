@@ -34,34 +34,27 @@ for i in range(1,v.shape[0]):
 
 
 # %%
-initial_state = torch.tensor([x[0],y[0],theta[0],v[0]]).unsqueeze(0)
-control_inputs = torch.vstack([steer_angle, accel]).T[1:3]
-control_inputs = control_inputs.contiguous().unsqueeze(0)
-target_states = torch.vstack([x, y, theta, v]).T[1:3]
-target_states = target_states.contiguous().unsqueeze(0)
+initial_state = torch.tensor([x[0],y[0],theta[0],v[0]])#.unsqueeze(0)
+control_inputs = torch.vstack([steer_angle, accel]).T[1:4]
+control_inputs = control_inputs.contiguous()#.unsqueeze(0)
+target_states = torch.vstack([x, y, theta, v]).T[1:4]
+target_states = target_states.contiguous()#.unsqueeze(0)
 
 print(f"Inputs size: {control_inputs.shape} | States size: {target_states.shape}")
 # %%
 dynamics = Bicycle(4)
 integrator = Euler(dynamics, timestep=timestep)
 
-#output_states = integrator(initial_state, control_inputs)
+output_states = integrator(initial_state, control_inputs)
 # %%
-#torch.autograd.set_detect_anomaly(True)
+X, Y, THETA, V = 0, 1, 2, 3
+STEER, ACCEL = 0, 1
+torch.autograd.set_detect_anomaly(True)
 EPOCHS = 10
 for i in range(EPOCHS):
     optimizer = torch.optim.Adam(integrator.parameters(), lr=0.1)
     optimizer.zero_grad()
-    #output_states = integrator(initial_state, control_inputs)
-    output_states = torch.zeros([1,2,4])
-    diffs = torch.zeros_like(output_states)
-    diffs[0] = dynamics(initial_state, control_inputs[:,0])
-    output_states[:,0] = initial_state + diffs[:,0] * timestep
-
-    for i in range(1, control_inputs.shape[1]):
-        diffs[:,i] = dynamics.get_diff(output_states[:,i-1], control_inputs[:,i])
-        output_states[:,i] = output_states[:,i-1] + diffs[:,i] * timestep
-
+    output_states = integrator(initial_state, control_inputs)
     loss = torch.nn.functional.l1_loss(output_states, target_states)
     loss.backward()
     optimizer.step()
