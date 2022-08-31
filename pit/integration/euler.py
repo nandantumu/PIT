@@ -34,14 +34,13 @@ class Euler(nn.Module):
         integrated_states = list()
 
         if batch_mode:
-            print("BATCHMODE")
             diff = self.dynamics(initial_state, control_inputs[:,0])
-            state = torch.zeros((B, state_dims))
+            #state = torch.zeros((B, state_dims))
             state = initial_state + diff * self.timestep
             integrated_states.append(state)
 
             for i in range(1, control_inputs.shape[1]):            
-                state = torch.zeros((B, state_dims))
+                #state = torch.zeros((B, state_dims))
                 diff = self.dynamics(integrated_states[i-1], control_inputs[:,i])
                 state = integrated_states[i-1] + diff * self.timestep
                 integrated_states.append(state)
@@ -49,15 +48,14 @@ class Euler(nn.Module):
             assert(list(integrated_states.shape) == [control_inputs.shape[0], control_inputs.shape[1], state_dims])
         
         else:
-            print("SINGLEMODE")
             diff = self.dynamics(initial_state, control_inputs[0])
-            state = torch.zeros((state_dims))
+            #state = torch.zeros((state_dims))
             state = initial_state + diff * self.timestep
             integrated_states.append(state)
 
             for i in range(1, control_inputs.shape[0]):
                 diff = self.dynamics(integrated_states[i-1], control_inputs[i])
-                state = torch.zeros((state_dims))
+                #state = torch.zeros((state_dims))
                 state = integrated_states[i-1] + diff * self.timestep
                 integrated_states.append(state)
             

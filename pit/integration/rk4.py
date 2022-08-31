@@ -35,48 +35,48 @@ class RK4(nn.Module):
 
         if batch_mode:
             k1 = self.dynamics(initial_state, control_inputs[:,0])
-            k2_state = initial_state + self.timestep * k1 / 2
+            k2_state = initial_state + (self.timestep * k1 / 2)
             k2 = self.dynamics(k2_state, control_inputs[:,0])
-            k3_state = initial_state + self.timestep * k2 / 2
+            k3_state = initial_state + (self.timestep * k2 / 2)
             k3 = self.dynamics(k3_state, control_inputs[:,0])
-            k4_state = initial_state + self.timestep * k3
+            k4_state = initial_state + (self.timestep * k3)
             k4 = self.dynamics(k4_state, control_inputs[:,0])
 
-            integrated_states.append(initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6)
+            integrated_states.append(initial_state + (self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6))
 
-            for i in range(1, control_inputs.shape[1]):
+            for i in range(1, L):
                 k1 = self.dynamics(integrated_states[i-1], control_inputs[:,i])
-                k2_state = integrated_states[i-1] + self.timestep * k1 / 2
+                k2_state = integrated_states[i-1] + (self.timestep * k1 / 2)
                 k2 = self.dynamics(integrated_states[i-1], control_inputs[:,i])
-                k3_state = integrated_states[i-1] + self.timestep * k2 / 2
+                k3_state = integrated_states[i-1] + (self.timestep * k2 / 2)
                 k3 = self.dynamics(integrated_states[i-1], control_inputs[:,i])
-                k4_state = integrated_states[i-1] + self.timestep * k3
+                k4_state = integrated_states[i-1] + (self.timestep * k3)
                 k4 = self.dynamics(integrated_states[i-1], control_inputs[:,i])
-                integrated_states.append(initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6)
+                integrated_states.append(integrated_states[i-1] + (self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6))
             
             integrated_states = torch.stack(integrated_states, dim=1)
             assert(list(integrated_states.shape) == [control_inputs.shape[0], control_inputs.shape[1], state_dims])
         
         else:
             k1 = self.dynamics(initial_state, control_inputs[0])
-            k2_state = initial_state + self.timestep * k1 / 2
+            k2_state = initial_state + (self.timestep * k1 / 2)
             k2 = self.dynamics(k2_state, control_inputs[0])
-            k3_state = initial_state + self.timestep * k2 / 2
+            k3_state = initial_state + (self.timestep * k2 / 2)
             k3 = self.dynamics(k3_state, control_inputs[0])
-            k4_state = initial_state + self.timestep * k3
+            k4_state = initial_state + (self.timestep * k3)
             k4 = self.dynamics(k4_state, control_inputs[0])
 
-            integrated_states.append(initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6)
+            integrated_states.append(initial_state + (self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6))
 
-            for i in range(1, control_inputs.shape[0]):
+            for i in range(1, L):
                 k1 = self.dynamics(integrated_states[i-1], control_inputs[i])
-                k2_state = integrated_states[i-1] + self.timestep * k1 / 2
+                k2_state = integrated_states[i-1] + (self.timestep * k1 / 2)
                 k2 = self.dynamics(integrated_states[i-1], control_inputs[i])
-                k3_state = integrated_states[i-1] + self.timestep * k2 / 2
+                k3_state = integrated_states[i-1] + (self.timestep * k2 / 2)
                 k3 = self.dynamics(integrated_states[i-1], control_inputs[i])
-                k4_state = integrated_states[i-1] + self.timestep * k3
+                k4_state = integrated_states[i-1] + (self.timestep * k3)
                 k4 = self.dynamics(integrated_states[i-1], control_inputs[i])
-                integrated_states.append(initial_state + self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6)
+                integrated_states.append(integrated_states[i-1] + (self.timestep*(k1 + 2*k2 + 2*k3 + k4)/6))
             
             integrated_states = torch.stack(integrated_states, dim=0)
             assert(list(integrated_states.shape) == [control_inputs.shape[0], state_dims])
