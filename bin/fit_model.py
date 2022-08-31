@@ -11,8 +11,6 @@ import json
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-colors = ["blue", "orange", "green", "red", "purple", "brown", "pink", "gray", "olive", "cyan"]
-
 # input parameters
 map_name = 'SaoPaulo'  # Nuerburgring,  SaoPaulo
 lap_number = 1  # 1 - faster, 2 - slower
@@ -36,9 +34,9 @@ steer_speed = torch.tensor(data['steer_speed'])
 
 # %%
 initial_state = torch.tensor([x[0],y[0],yaw[0],vx[0],vy[0],yaw_rate[0],steer_angle[0]]).to(DEVICE)
-control_inputs = torch.vstack([drive_force, steer_speed]).T[:600,]
+control_inputs = torch.vstack([drive_force, steer_speed]).T#[:600,]
 control_inputs = control_inputs.contiguous().to(DEVICE)
-target_states = torch.vstack([x, y, yaw, vx, vy, yaw_rate, steer_angle]).T[:600]
+target_states = torch.vstack([x, y, yaw, vx, vy, yaw_rate, steer_angle]).T[1:]
 target_states = target_states.contiguous().to(DEVICE)
 
 print(f"Inputs size: {control_inputs.shape} | States size: {target_states.shape}")
@@ -62,8 +60,8 @@ params = {
     'Cr': 1.0,
     'Br': 1.0,
     'Cm': 1.0,
-    'Cr0': 1.0,
-    'Cr2': 1.0,
+    'Cr0': 0.2,
+    'Cr2': 0.9,
 }
 dynamics = DynamicBicycle(**params)
 euler_integrator = Euler(dynamics, timestep=timestep)
