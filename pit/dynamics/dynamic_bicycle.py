@@ -42,16 +42,17 @@ class DynamicBicycle(Dynamics, nn.Module):
             tire_forces (): Shape of (B, 3) or (3) [Frx, Ffy, Fry]
         """
         batch_mode = True if len(states.shape)==2 else False
+        device = self.mass.device
         if batch_mode:
             B = states.shape[0]
-            tire_forces = torch.zeros((B, 3))
+            tire_forces = torch.zeros((B, 3), device=device)
             alpha_f = states[:, STEERING_ANGLE] - torch.arctan((states[:, YAW_RATE]*self.lf + states[:, VY])/states[:, VX])
             alpha_r = torch.arctan((states[:, YAW_RATE] * self.lr - states[:, VY])/states[:, VX])
             tire_forces[:, FRX] = self.Cm * control_inputs[:, DRIVE_FORCE] - self.Cr0 - self.Cr2 * states[:, VX]**2.0
             tire_forces[:, FFY] = self.Df * torch.sin(self.Cf * torch.arctan(self.Bf * alpha_f))
             tire_forces[:, FRY] = self.Dr * torch.sin(self.Cr * torch.arctan(self.Br * alpha_r))
         else:
-            tire_forces = torch.zeros((3))
+            tire_forces = torch.zeros((3), device=device)
             alpha_f = states[STEERING_ANGLE] - torch.arctan((states[YAW_RATE]*self.lf + states[VY])/states[VX])
             alpha_r = torch.arctan((states[YAW_RATE] * self.lr - states[VY])/states[VX])
             tire_forces[FRX] = self.Cm * control_inputs[DRIVE_FORCE] - self.Cr0 - self.Cr2 * states[VX]**2.0
