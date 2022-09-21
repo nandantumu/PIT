@@ -25,8 +25,8 @@ class Bicycle(Dynamics, nn.Module):
         STEER, ACCEL = 0, 1
         diff = torch.zeros_like(states)
         if batch_mode:
-            diff[:, X] = (states[:, V]*self.wb/2) * torch.cos(states[:, THETA])
-            diff[:, Y] = (states[:, V]*self.wb/2) * torch.sin(states[:, THETA])
+            diff[:, X] = (states[:, V] + self.wb/2) * torch.cos(states[:, THETA])
+            diff[:, Y] = (states[:, V] + self.wb/2) * torch.sin(states[:, THETA])
             diff[:, THETA] = (states[:, V] * torch.tan(control_inputs[:, STEER]))/self.wb
             diff[:, V] = control_inputs[:, ACCEL]
         else:
