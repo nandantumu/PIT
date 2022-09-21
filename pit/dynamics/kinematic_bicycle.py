@@ -5,7 +5,8 @@ from torch import nn
 
 class Bicycle(Dynamics, nn.Module):
     """
-    This is a kinematic bicycle model. Details from 
+    This is a kinematic bicycle model, with the center of the vehicle as the control point. 
+    Based on 
     https://thomasfermi.github.io/Algorithms-for-Automated-Driving/Control/BicycleModel.html
     """
     def __init__(self, wheelbase) -> None:
@@ -24,8 +25,8 @@ class Bicycle(Dynamics, nn.Module):
         STEER, ACCEL = 0, 1
         diff = torch.zeros_like(states)
         if batch_mode:
-            diff[:, X] = states[:, V] * torch.cos(states[:, THETA])
-            diff[:, Y] = states[:, V] * torch.sin(states[:, THETA])
+            diff[:, X] = (states[:, V]*self.wb/2) * torch.cos(states[:, THETA])
+            diff[:, Y] = (states[:, V]*self.wb/2) * torch.sin(states[:, THETA])
             diff[:, THETA] = (states[:, V] * torch.tan(control_inputs[:, STEER]))/self.wb
             diff[:, V] = control_inputs[:, ACCEL]
         else:
