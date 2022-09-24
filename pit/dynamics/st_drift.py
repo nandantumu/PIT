@@ -7,13 +7,10 @@ X, Y, STEERING_ANGLE, V, YAW, YAW_RATE, SIDE_SLIP, FRONT_WHEEL_SPEED, REAR_WHEEL
 STEER_SPEED, ACCELERATION = 0, 1
 
 
-# FRX, FFY, FRY = 0, 1, 2
-
-
 class STDynamic(Dynamics, nn.Module):
     """
-    This is a dynamic single-track drift mmodel
-    From common roads
+    This is a dynamic single-track drift model
+    From common roads: https://gitlab.lrz.de/tum-cps/commonroad-vehicle-models/-/tree/master/
     Model reference point: CoG
     State Variable [x, y, steering angle, v, yaw angle, yaw rate, side-slip, front wheel speed, rear wheel speed]
     Control Inputs [steering velocity, acceleration]
@@ -187,7 +184,7 @@ class STDynamic(Dynamics, nn.Module):
         """ Get the evaluated ODEs of the state at this point
 
         Args:
-            states (): Shape of (B, 7) or (7)
+            states (): Shape of (B, 9) or (9)
             control_inputs (): Shape of (B, 2) or (2)
         """
         batch_mode = True if len(states.shape) == 2 else False
@@ -259,9 +256,13 @@ class STDynamic(Dynamics, nn.Module):
                 states[SIDE_SLIP]) + F_xf * torch.cos(states[STEERING_ANGLE] - states[SIDE_SLIP]))
             dd_psi = 1 / self.I * (
                     F_yf * torch.cos(states[STEERING_ANGLE]) * self.lf - F_yr * self.lr + F_xf * torch.sin(states[STEERING_ANGLE]) * self.lf)
-            d_beta = -states[YAW_RATE] + 1 / (self.m * states[V]) * (
-                    F_yf * torch.cos(states[STEERING_ANGLE] - states[SIDE_SLIP]) + F_yr * torch.cos(states[SIDE_SLIP]) - F_xr * torch.sin(
-                states[SIDE_SLIP]) + F_xf * torch.sin(states[STEERING_ANGLE] - states[SIDE_SLIP])) if states[V] > self.v_min else 0
+
+            if states[V] > self.v_min :
+                d_beta = -states[YAW_RATE] + 1 / (self.m * states[V]) * (
+                        F_yf * torch.cos(states[STEERING_ANGLE] - states[SIDE_SLIP]) + F_yr * torch.cos(states[SIDE_SLIP]) - F_xr * torch.sin(
+                    states[SIDE_SLIP]) + F_xf * torch.sin(states[STEERING_ANGLE] - states[SIDE_SLIP]))
+            else:
+                d_beta = 0.0
 
             # wheel dynamics (negative wheel spin forbidden)
             if states[FRONT_WHEEL_SPEED] >= 0:
