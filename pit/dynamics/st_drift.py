@@ -204,12 +204,19 @@ class STDynamic(Dynamics, nn.Module):
 
             # steering and acceleration constraints
             u = []
-            # u.append(steering_constraints(states[2], u_init[0], p.steering))  # different name due to side effects of u
-            # u.append(acceleration_constraints(states[3], u_init[1], p.longitudinal))  # different name due to side effect of u
+            # u.append(steering_constraints(states[STEERING_ANGLE], u_init[0], p.steering))  # different name due to side effects of u
+            # u.append(acceleration_constraints(states[V], u_init[1], p.longitudinal))  # different name due to side effect of u
 
             # compute lateral tire slip angles
-            alpha_f = torch.atan((states[3] * torch.sin(states[6]) + states[5] * self.lf) / (states[3] * torch.cos(states[6]))) - states[2] if states[3] > v_min else 0
-            alpha_r = torch.atan((states[3] * torch.sin(states[6]) - states[5] * self.lr) / (states[3] * torch.cos(states[6]))) if states[3] > v_min else 0
+            if states[V] > v_min:
+                alpha_f = torch.atan(
+                    (states[V] * torch.sin(states[SIDE_SLIP]) + states[YAW_RATE] * self.lf) / (states[V] * torch.cos(states[SIDE_SLIP]))) - states[
+                              STEERING_ANGLE]
+                alpha_r = torch.atan(
+                    (states[V] * torch.sin(states[SIDE_SLIP]) - states[YAW_RATE] * self.lr) / (states[V] * torch.cos(states[SIDE_SLIP])))
+            else:
+                alpha_f = 0.0
+                alpha_r = 0.0
 
             # compute vertical tire forces
             F_zf = self.m * (-u[1] * self.h_s + g * self.lr) / (self.lr + self.lf)
@@ -217,12 +224,14 @@ class STDynamic(Dynamics, nn.Module):
 
             # compute front and rear tire speeds, speed of tires can be only positive
             u_wf = torch.maximum(torch.zeros((1,)),
-                                 states[3] * torch.cos(states[6]) * torch.cos(states[2]) + (states[3] * torch.sin(states[6]) + self.lf * states[5]) * torch.sin(states[2]))
-            u_wr = torch.maximum(torch.zeros((1,)), states[3] * torch.cos(states[6]))
+                                 states[V] * torch.cos(states[SIDE_SLIP]) * torch.cos(states[STEERING_ANGLE]) + (
+                                             states[V] * torch.sin(states[SIDE_SLIP]) + self.lf * states[YAW_RATE]) * torch.sin(
+                                     states[STEERING_ANGLE]))
+            u_wr = torch.maximum(torch.zeros((1,)), states[V] * torch.cos(states[SIDE_SLIP]))
 
             # compute longitudinal tire slip
-            s_f = 1 - self.R_w * states[7] / torch.maximum(u_wf, v_min)
-            s_r = 1 - self.R_w * states[8] / torch.maximum(u_wr, v_min)
+            s_f = 1 - self.R_w * states[FRONT_WHEEL_SPEED] / torch.maximum(u_wf, v_min)
+            s_r = 1 - self.R_w * states[REAR_WHEEL_SPEED] / torch.maximum(u_wr, v_min)
 
             # compute tire forces (Pacejka)
             # pure slip longitudinal forces
@@ -251,43 +260,48 @@ class STDynamic(Dynamics, nn.Module):
                 T_E = self.m * self.R_w * u[1]
             else:
                 T_B = self.m * self.R_w * u[1]
-                T_E = 0.
+                T_E = 0.0
 
             # system dynamics
-            d_v = 1 / self.m * (-F_yf * torch.sin(states[2] - states[6]) + F_yr * torch.sin(states[6]) + F_xr * torch.cos(states[6]) + F_xf * torch.cos(states[2] - states[6]))
-            dd_psi = 1 / self.I * (F_yf * torch.cos(states[2]) * self.lf - F_yr * self.lr + F_xf * torch.sin(states[2]) * self.lf)
-            d_beta = -states[5] + 1 / (self.m * states[3]) * (
-                        F_yf * torch.cos(states[2] - states[6]) + F_yr * torch.cos(states[6]) - F_xr * torch.sin(states[6]) + F_xf * torch.sin(states[2] - states[6])) if states[3] > v_min else 0
+            d_v = 1 / self.m * (
+                        -F_yf * torch.sin(states[STEERING_ANGLE] - states[SIDE_SLIP]) + F_yr * torch.sin(states[SIDE_SLIP]) + F_xr * torch.cos(
+                    states[SIDE_SLIP]) + F_xf * torch.cos(states[STEERING_ANGLE] - states[SIDE_SLIP]))
+            dd_psi = 1 / self.I * (
+                        F_yf * torch.cos(states[STEERING_ANGLE]) * self.lf - F_yr * self.lr + F_xf * torch.sin(states[STEERING_ANGLE]) * self.lf)
+            d_beta = -states[YAW_RATE] + 1 / (self.m * states[V]) * (
+                    F_yf * torch.cos(states[STEERING_ANGLE] - states[SIDE_SLIP]) + F_yr * torch.cos(states[SIDE_SLIP]) - F_xr * torch.sin(
+                states[SIDE_SLIP]) + F_xf * torch.sin(states[STEERING_ANGLE] - states[SIDE_SLIP])) if states[V] > v_min else 0
 
             # wheel dynamics (negative wheel spin forbidden)
-            d_omega_f = 1 / self.I_y_w * (-self.R_w * F_xf + self.T_sb * T_B + self.T_se * T_E) if states[7] >= 0 else 0
-            states[7] = torch.maximum(torch.zeros((1,)), states[7])
-            d_omega_r = 1 / self.I_y_w * (-self.R_w * F_xr + (1 - self.T_sb) * T_B + (1 - self.T_se) * T_E) if states[8] >= 0 else 0
-            states[8] = torch.maximum(torch.zeros((1,)), states[8])
+            d_omega_f = 1 / self.I_y_w * (-self.R_w * F_xf + self.T_sb * T_B + self.T_se * T_E) if states[FRONT_WHEEL_SPEED] >= 0 else 0
+            states[FRONT_WHEEL_SPEED] = torch.maximum(torch.zeros((1,)), states[FRONT_WHEEL_SPEED])
+            d_omega_r = 1 / self.I_y_w * (-self.R_w * F_xr + (1 - self.T_sb) * T_B + (1 - self.T_se) * T_E) if states[REAR_WHEEL_SPEED] >= 0 else 0
+            states[REAR_WHEEL_SPEED] = torch.maximum(torch.zeros((1,)), states[REAR_WHEEL_SPEED])
 
             # *** Mix with kinematic model at low speeds ***
             # kinematic system dynamics
-            x_ks = [states[0], states[1], states[2], states[3], states[4]]
+            x_ks = [states[X], states[Y], states[STEERING_ANGLE], states[V], states[YAW]]
             f_ks = vehicle_dynamics_ks_cog(x_ks, u, p)
             # derivative of slip angle and yaw rate (kinematic)
-            d_beta_ks = (self.lr * u[0]) / (lwb * torch.cos(states[2]) ** 2 * (1 + (torch.tan(states[2]) ** 2 * self.lr / lwb) ** 2))
-            dd_psi_ks = 1 / lwb * (u[1] * torch.cos(states[6]) * torch.tan(states[2]) -
-                                   states[3] * torch.sin(states[6]) * d_beta_ks * torch.tan(states[2]) +
-                                   states[3] * torch.cos(states[6]) * u[0] / torch.cos(states[2]) ** 2)
+            d_beta_ks = (self.lr * u[0]) / (
+                        lwb * torch.cos(states[STEERING_ANGLE]) ** 2 * (1 + (torch.tan(states[STEERING_ANGLE]) ** 2 * self.lr / lwb) ** 2))
+            dd_psi_ks = 1 / lwb * (u[1] * torch.cos(states[SIDE_SLIP]) * torch.tan(states[STEERING_ANGLE]) -
+                                   states[V] * torch.sin(states[SIDE_SLIP]) * d_beta_ks * torch.tan(states[STEERING_ANGLE]) +
+                                   states[V] * torch.cos(states[SIDE_SLIP]) * u[0] / torch.cos(states[STEERING_ANGLE]) ** 2)
             # derivative of angular speeds (kinematic)
-            d_omega_f_ks = (1 / 0.02) * (u_wf / self.R_w - states[7])
-            d_omega_r_ks = (1 / 0.02) * (u_wr / self.R_w - states[8])
+            d_omega_f_ks = (1 / 0.02) * (u_wf / self.R_w - states[FRONT_WHEEL_SPEED])
+            d_omega_r_ks = (1 / 0.02) * (u_wr / self.R_w - states[REAR_WHEEL_SPEED])
 
             # weights for mixing both models
-            w_std = 0.5 * (torch.tanh((states[3] - v_s) / v_b) + 1)
+            w_std = 0.5 * (torch.tanh((states[V] - v_s) / v_b) + 1)
             w_ks = 1 - w_std
 
             # output vector: mix results of dynamic and kinematic model
-            diff[X] = states[3] * torch.cos(states[6] + states[4])
-            diff[Y] = states[3] * torch.sin(states[6] + states[4])
+            diff[X] = states[V] * torch.cos(states[SIDE_SLIP] + states[YAW])
+            diff[Y] = states[V] * torch.sin(states[SIDE_SLIP] + states[YAW])
             diff[STEERING_ANGLE] = u[0]
             diff[V] = w_std * d_v + w_ks * f_ks[3]
-            diff[YAW] = w_std * states[5] + w_ks * f_ks[4]
+            diff[YAW] = w_std * states[YAW_RATE] + w_ks * f_ks[4]
             diff[YAW_RATE] = w_std * dd_psi + w_ks * dd_psi_ks
             diff[SIDE_SLIP] = w_std * d_beta + w_ks * d_beta_ks
             diff[FRONT_WHEEL_SPEED] = w_std * d_omega_f + w_ks * d_omega_f_ks
