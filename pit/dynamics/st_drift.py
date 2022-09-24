@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 X, Y, STEERING_ANGLE, V, YAW, YAW_RATE, SIDE_SLIP, FRONT_WHEEL_SPEED, REAR_WHEEL_SPEED = 0, 1, 2, 3, 4, 5, 6, 7, 8
-DRIVE_FORCE, STEER_SPEED = 0, 1
+STEER_SPEED, ACCELERATION = 0, 1
 
 
 # FRX, FFY, FRY = 0, 1, 2
@@ -219,8 +219,8 @@ class STDynamic(Dynamics, nn.Module):
                 alpha_r = 0.0
 
             # compute vertical tire forces
-            F_zf = self.m * (-u[1] * self.h_s + g * self.lr) / (self.lr + self.lf)
-            F_zr = self.m * (u[1] * self.h_s + g * self.lf) / (self.lr + self.lf)
+            F_zf = self.m * (-control_inputs[ACCELERATION] * self.h_s + g * self.lr) / (self.lr + self.lf)
+            F_zr = self.m * (control_inputs[ACCELERATION] * self.h_s + g * self.lf) / (self.lr + self.lf)
 
             # compute front and rear tire speeds, speed of tires can be only positive
             u_wf = torch.maximum(torch.zeros((1,)),
@@ -255,11 +255,11 @@ class STDynamic(Dynamics, nn.Module):
             F_yr = self.formula_lateral_comb(s_r, alpha_r, 0, mu_yr, F_zr, F0_yr)
 
             # convert acceleration input to brake and engine torque
-            if u[1] > 0:
+            if control_inputs[ACCELERATION] > 0:
                 T_B = 0.0
-                T_E = self.m * self.R_w * u[1]
+                T_E = self.m * self.R_w * control_inputs[ACCELERATION]
             else:
-                T_B = self.m * self.R_w * u[1]
+                T_B = self.m * self.R_w * control_inputs[ACCELERATION]
                 T_E = 0.0
 
             # system dynamics
@@ -290,11 +290,11 @@ class STDynamic(Dynamics, nn.Module):
             x_ks = [states[X], states[Y], states[STEERING_ANGLE], states[V], states[YAW]]
             f_ks = vehicle_dynamics_ks_cog(x_ks, u, p)
             # derivative of slip angle and yaw rate (kinematic)
-            d_beta_ks = (self.lr * u[0]) / (
+            d_beta_ks = (self.lr * control_inputs[STEER_SPEED]) / (
                     lwb * torch.cos(states[STEERING_ANGLE]) ** 2 * (1 + (torch.tan(states[STEERING_ANGLE]) ** 2 * self.lr / lwb) ** 2))
-            dd_psi_ks = 1 / lwb * (u[1] * torch.cos(states[SIDE_SLIP]) * torch.tan(states[STEERING_ANGLE]) -
+            dd_psi_ks = 1 / lwb * (control_inputs[ACCELERATION] * torch.cos(states[SIDE_SLIP]) * torch.tan(states[STEERING_ANGLE]) -
                                    states[V] * torch.sin(states[SIDE_SLIP]) * d_beta_ks * torch.tan(states[STEERING_ANGLE]) +
-                                   states[V] * torch.cos(states[SIDE_SLIP]) * u[0] / torch.cos(states[STEERING_ANGLE]) ** 2)
+                                   states[V] * torch.cos(states[SIDE_SLIP]) * control_inputs[STEER_SPEED] / torch.cos(states[STEERING_ANGLE]) ** 2)
             # derivative of angular speeds (kinematic)
             d_omega_f_ks = (1 / 0.02) * (u_wf / self.R_w - states[FRONT_WHEEL_SPEED])
             d_omega_r_ks = (1 / 0.02) * (u_wr / self.R_w - states[REAR_WHEEL_SPEED])
@@ -306,7 +306,7 @@ class STDynamic(Dynamics, nn.Module):
             # output vector: mix results of dynamic and kinematic model
             diff[X] = states[V] * torch.cos(states[SIDE_SLIP] + states[YAW])
             diff[Y] = states[V] * torch.sin(states[SIDE_SLIP] + states[YAW])
-            diff[STEERING_ANGLE] = u[0]
+            diff[STEERING_ANGLE] = control_inputs[STEER_SPEED]
             diff[V] = w_std * d_v + w_ks * f_ks[3]
             diff[YAW] = w_std * states[YAW_RATE] + w_ks * f_ks[4]
             diff[YAW_RATE] = w_std * dd_psi + w_ks * dd_psi_ks
