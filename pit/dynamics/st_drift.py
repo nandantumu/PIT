@@ -189,5 +189,107 @@ class STDynamic(Dynamics, nn.Module):
         if batch_mode:
             pass
         else:
-            pass
+
+            # set gravity constant
+            g = 9.81  # [m/s^2]
+
+            # create equivalent bicycle parameters
+            lwb = self.lf + self.lr
+
+            # mix models parameters
+            # TODO what to do with this parameters?
+            v_s = torch.tensor(0.2)
+            v_b = torch.tensor(0.05)
+            v_min = torch.tensor(v_s / 2.0)
+
+            # steering and acceleration constraints
+            u = []
+            # u.append(steering_constraints(states[2], u_init[0], p.steering))  # different name due to side effects of u
+            # u.append(acceleration_constraints(states[3], u_init[1], p.longitudinal))  # different name due to side effect of u
+
+            # compute lateral tire slip angles
+            alpha_f = torch.atan((states[3] * torch.sin(states[6]) + states[5] * self.lf) / (states[3] * torch.cos(states[6]))) - states[2] if states[3] > v_min else 0
+            alpha_r = torch.atan((states[3] * torch.sin(states[6]) - states[5] * self.lr) / (states[3] * torch.cos(states[6]))) if states[3] > v_min else 0
+
+            # compute vertical tire forces
+            F_zf = self.m * (-u[1] * self.h_s + g * self.lr) / (self.lr + self.lf)
+            F_zr = self.m * (u[1] * self.h_s + g * self.lf) / (self.lr + self.lf)
+
+            # compute front and rear tire speeds, speed of tires can be only positive
+            u_wf = torch.maximum(torch.zeros((1,)),
+                                 states[3] * torch.cos(states[6]) * torch.cos(states[2]) + (states[3] * torch.sin(states[6]) + self.lf * states[5]) * torch.sin(states[2]))
+            u_wr = torch.maximum(torch.zeros((1,)), states[3] * torch.cos(states[6]))
+
+            # compute longitudinal tire slip
+            s_f = 1 - self.R_w * states[7] / torch.maximum(u_wf, v_min)
+            s_r = 1 - self.R_w * states[8] / torch.maximum(u_wr, v_min)
+
+            # compute tire forces (Pacejka)
+            # pure slip longitudinal forces
+            F0_xf = self.formula_longitudinal(s_f, 0, F_zf)
+            F0_xr = self.formula_longitudinal(s_r, 0, F_zr)
+
+            # pure slip lateral forces
+            res = self.formula_lateral(alpha_f, 0, F_zf)
+            F0_yf = res[0]
+            mu_yf = res[1]
+            res = self.formula_lateral(alpha_r, 0, F_zr)
+            F0_yr = res[0]
+            mu_yr = res[1]
+
+            # combined slip longitudinal forces
+            F_xf = self.formula_longitudinal_comb(s_f, alpha_f, F0_xf)
+            F_xr = self.formula_longitudinal_comb(s_r, alpha_r, F0_xr)
+
+            # combined slip lateral forces
+            F_yf = self.formula_lateral_comb(s_f, alpha_f, 0, mu_yf, F_zf, F0_yf)
+            F_yr = self.formula_lateral_comb(s_r, alpha_r, 0, mu_yr, F_zr, F0_yr)
+
+            # convert acceleration input to brake and engine torque
+            if u[1] > 0:
+                T_B = 0.0
+                T_E = self.m * self.R_w * u[1]
+            else:
+                T_B = self.m * self.R_w * u[1]
+                T_E = 0.
+
+            # system dynamics
+            d_v = 1 / self.m * (-F_yf * torch.sin(states[2] - states[6]) + F_yr * torch.sin(states[6]) + F_xr * torch.cos(states[6]) + F_xf * torch.cos(states[2] - states[6]))
+            dd_psi = 1 / self.I * (F_yf * torch.cos(states[2]) * self.lf - F_yr * self.lr + F_xf * torch.sin(states[2]) * self.lf)
+            d_beta = -states[5] + 1 / (self.m * states[3]) * (
+                        F_yf * torch.cos(states[2] - states[6]) + F_yr * torch.cos(states[6]) - F_xr * torch.sin(states[6]) + F_xf * torch.sin(states[2] - states[6])) if states[3] > v_min else 0
+
+            # wheel dynamics (negative wheel spin forbidden)
+            d_omega_f = 1 / self.I_y_w * (-self.R_w * F_xf + self.T_sb * T_B + self.T_se * T_E) if states[7] >= 0 else 0
+            states[7] = torch.maximum(torch.zeros((1,)), states[7])
+            d_omega_r = 1 / self.I_y_w * (-self.R_w * F_xr + (1 - self.T_sb) * T_B + (1 - self.T_se) * T_E) if states[8] >= 0 else 0
+            states[8] = torch.maximum(torch.zeros((1,)), states[8])
+
+            # *** Mix with kinematic model at low speeds ***
+            # kinematic system dynamics
+            x_ks = [states[0], states[1], states[2], states[3], states[4]]
+            f_ks = vehicle_dynamics_ks_cog(x_ks, u, p)
+            # derivative of slip angle and yaw rate (kinematic)
+            d_beta_ks = (self.lr * u[0]) / (lwb * torch.cos(states[2]) ** 2 * (1 + (torch.tan(states[2]) ** 2 * self.lr / lwb) ** 2))
+            dd_psi_ks = 1 / lwb * (u[1] * torch.cos(states[6]) * torch.tan(states[2]) -
+                                   states[3] * torch.sin(states[6]) * d_beta_ks * torch.tan(states[2]) +
+                                   states[3] * torch.cos(states[6]) * u[0] / torch.cos(states[2]) ** 2)
+            # derivative of angular speeds (kinematic)
+            d_omega_f_ks = (1 / 0.02) * (u_wf / self.R_w - states[7])
+            d_omega_r_ks = (1 / 0.02) * (u_wr / self.R_w - states[8])
+
+            # weights for mixing both models
+            w_std = 0.5 * (torch.tanh((states[3] - v_s) / v_b) + 1)
+            w_ks = 1 - w_std
+
+            # output vector: mix results of dynamic and kinematic model
+            diff[X] = states[3] * torch.cos(states[6] + states[4])
+            diff[Y] = states[3] * torch.sin(states[6] + states[4])
+            diff[STEERING_ANGLE] = u[0]
+            diff[V] = w_std * d_v + w_ks * f_ks[3]
+            diff[YAW] = w_std * states[5] + w_ks * f_ks[4]
+            diff[YAW_RATE] = w_std * dd_psi + w_ks * dd_psi_ks
+            diff[SIDE_SLIP] = w_std * d_beta + w_ks * d_beta_ks
+            diff[FRONT_WHEEL_SPEED] = w_std * d_omega_f + w_ks * d_omega_f_ks
+            diff[REAR_WHEEL_SPEED] = w_std * d_omega_r + w_ks * d_omega_r_ks
         return diff
