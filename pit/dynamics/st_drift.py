@@ -136,10 +136,7 @@ class STDynamic(Dynamics, nn.Module):
         # magic tire formula
         F_y = D_y * torch.sin(C_y * torch.atan(B_y * alpha_y - E_y * (B_y * alpha_y - torch.atan(B_y * alpha_y)))) + S_vy
 
-        res = []
-        res.append(F_y)
-        res.append(mu_y)
-        return res
+        return F_y, mu_y
 
     # longitudinal tire forces for combined slip
     def formula_longitudinal_comb(self, kappa, alpha, F0_x):
@@ -231,12 +228,8 @@ class STDynamic(Dynamics, nn.Module):
             F0_xr = self.formula_longitudinal(s_r, 0, F_zr)
 
             # pure slip lateral forces
-            res = self.formula_lateral(alpha_f, 0, F_zf)
-            F0_yf = res[0]
-            mu_yf = res[1]
-            res = self.formula_lateral(alpha_r, 0, F_zr)
-            F0_yr = res[0]
-            mu_yr = res[1]
+            F0_yf, mu_yf = self.formula_lateral(alpha_f, 0, F_zf)
+            F0_yr, mu_yr = self.formula_lateral(alpha_r, 0, F_zr)
 
             # combined slip longitudinal forces
             F_xf = self.formula_longitudinal_comb(s_f, alpha_f, F0_xf)

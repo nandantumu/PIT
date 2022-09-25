@@ -36,7 +36,7 @@ class BicycleCoG(Dynamics, nn.Module):
             l_wb = self.lf + self.lr
 
             # slip angle (beta) from vehicle kinematics
-            beta = torch.atan(torch.tan(states[2]) * self.lr / l_wb)
+            beta = torch.atan(torch.tan(states[STEERING_ANGLE]) * self.lr / l_wb)
 
             diff[X] = states[V] * torch.cos(beta + states[THETA])
             diff[Y] = states[V] * torch.sin(beta + states[THETA])
