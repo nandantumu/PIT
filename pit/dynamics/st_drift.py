@@ -1,4 +1,5 @@
 from . import Dynamics
+from kinematic_bicycle_COG import BicycleCoG
 
 import torch
 from torch import nn
@@ -24,6 +25,9 @@ class STDynamic(Dynamics, nn.Module):
                  tire_r_vy1, tire_r_vy3, tire_r_vy4, tire_r_vy5, tire_r_vy6,  # lateral combined slip
                  ) -> None:
         super().__init__()
+
+        # We need to switch to this model in small speeds
+        self.kinematic_cog = BicycleCoG(lr, lf)  # TODO How to make sure that parameters lr and lf will be the same for both models?
 
         # Not changing parameters
         self.g = 9.81  # [m/s^2]
@@ -279,8 +283,8 @@ class STDynamic(Dynamics, nn.Module):
 
             # *** Mix with kinematic model at low speeds ***
             # kinematic system dynamics
-            x_ks = [states[X], states[Y], states[STEERING_ANGLE], states[V], states[YAW]]
-            f_ks = vehicle_dynamics_ks_cog(x_ks, u, p)
+            x_ks = torch.tensor([states[X], states[Y], states[STEERING_ANGLE], states[V], states[YAW]])  # TODO Check that this will not zero gradient
+            f_ks = self.kinematic_cog.forward(x_ks, control_inputs)
             # derivative of slip angle and yaw rate (kinematic)
             d_beta_ks = (self.lr * control_inputs[STEER_SPEED]) / (
                     lwb * torch.cos(states[STEERING_ANGLE]) ** 2 * (1 + (torch.tan(states[STEERING_ANGLE]) ** 2 * self.lr / lwb) ** 2))
