@@ -3,10 +3,11 @@ from torch import nn
 
 class RK4(nn.Module):
     """Module to do RK4 integration"""
-    def __init__(self, dynamics, timestep=0.10) -> None:
+    def __init__(self, dynamics, timestep=0.10, include_initial_state=False) -> None:
         super().__init__()
         self.dynamics = dynamics
         self.timestep = timestep
+        self.include_initial_state = include_initial_state
 
     def forward(self, initial_state, control_inputs):
         """
@@ -33,6 +34,9 @@ class RK4(nn.Module):
 
         integrated_states = list()
 
+        if self.include_initial_state:
+            integrated_states.append(initial_state)
+        
         if batch_mode:
             k1 = self.dynamics(initial_state, control_inputs[:,0])
             k2_state = initial_state + (self.timestep * k1 / 2)
