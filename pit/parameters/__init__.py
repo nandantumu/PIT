@@ -1,2 +1,2 @@
-from .distribution import IndependentNormalParameterGroup
+from .distribution import CovariantNormalParameterGroup, NormalParameterGroup
 from .point import PointParameterGroup

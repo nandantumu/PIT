@@ -1,5 +1,6 @@
 from . import Dynamics
-from ..parameters import IndependentNormalParameterGroup
+from ..parameters import PointParameterGroup, CovariantNormalParameterGroup, NormalParameterGroup
+from ..parameters.definitions import ParameterSample
 
 import torch
 from torch import nn
@@ -19,7 +20,7 @@ class DynamicBicycle(Dynamics, nn.Module):
     """
     def __init__(self, lf, lr, Iz, mass, Df, Cf, Bf, Dr, Cr, Br, Cm, Cr0, Cr2) -> None:
         super().__init__()
-        self.param_names = ['lf', 'lr', 'Iz', 'mass', 'Df', 'Cf', 'Bf', 'Dr', 'Cr', 'Br', 'Cm', 'Cr0', 'Cr2']
+        self.parameter_list = ['lf', 'lr', 'Iz', 'mass', 'Df', 'Cf', 'Bf', 'Dr', 'Cr', 'Br', 'Cm', 'Cr0', 'Cr2']
         self.initial_values = {
             'lf': lf,
             'lr': lr,
@@ -35,7 +36,13 @@ class DynamicBicycle(Dynamics, nn.Module):
             'Cr0': Cr0,
             'Cr2': Cr2
         }
-        self.params = IndependentNormalParameterGroup(self.param_names, self.initial_values)
+        # if param_type == 'point':
+        #     self.params = PointParameterGroup(self.param_names, self.initial_values)
+        # elif param_type == 'normal':
+        #     self.params = NormalParameterGroup(self.param_names, self.initial_values)
+        # elif param_type == 'covariant':
+        #     # raise FutureWarning("CovariantNormalParameterGroup is not implemented yet")
+        #     self.params = CovariantNormalParameterGroup(self.param_names, self.initial_values)
 
         # self.lf = torch.nn.Parameter(torch.tensor(lf, dtype=torch.float32))
         # self.lr = torch.nn.Parameter(torch.tensor(lr, dtype=torch.float32))
@@ -51,7 +58,11 @@ class DynamicBicycle(Dynamics, nn.Module):
         # self.Cr0 = torch.nn.Parameter(torch.tensor(Cr0, dtype=torch.float32))
         # self.Cr2 = torch.nn.Parameter(torch.tensor(Cr2, dtype=torch.float32))
 
-    def calculate_tire_forces(self, states, control_inputs):
+    def to(self, *args, **kwargs):
+        super().to(*args, **kwargs)
+        # self.params.to(*args, **kwargs)
+
+    def calculate_tire_forces(self, states, control_inputs, params: ParameterSample):
         """ Get the tire forces at this point
 
         Args:
@@ -61,26 +72,26 @@ class DynamicBicycle(Dynamics, nn.Module):
             tire_forces (): Shape of (B, 3) or (3) [Frx, Ffy, Fry]
         """
         batch_mode = True if len(states.shape)==2 else False
-        device = self.params['lf'].device
+        device = params['lf'].device
         if batch_mode:
             B = states.shape[0]
             tire_forces = torch.zeros((B, 3), device=device)
-            alpha_f = states[:, STEERING_ANGLE] - torch.arctan((states[:, YAW_RATE]*self.params['lf'] + states[:, VY])/states[:, VX])
-            alpha_r = torch.arctan((states[:, YAW_RATE] * self.params['lr'] - states[:, VY])/states[:, VX])
-            tire_forces[:, FRX] = self.params['Cm'] * control_inputs[:, DRIVE_FORCE] - self.params['Cr0'] - self.params['Cr2'] * states[:, VX]**2.0
-            tire_forces[:, FFY] = self.params['Df'] * torch.sin(self.params['Cf'] * torch.arctan(self.params['Bf'] * alpha_f))
-            tire_forces[:, FRY] = self.params['Dr'] * torch.sin(self.params['Cr'] * torch.arctan(self.params['Br'] * alpha_r))
+            alpha_f = states[:, STEERING_ANGLE] - torch.arctan((states[:, YAW_RATE]*params['lf'] + states[:, VY])/states[:, VX])
+            alpha_r = torch.arctan((states[:, YAW_RATE] * params['lr'] - states[:, VY])/states[:, VX])
+            tire_forces[:, FRX] = params['Cm'] * control_inputs[:, DRIVE_FORCE] - params['Cr0'] - params['Cr2'] * states[:, VX]**2.0
+            tire_forces[:, FFY] = params['Df'] * torch.sin(params['Cf'] * torch.arctan(params['Bf'] * alpha_f))
+            tire_forces[:, FRY] = params['Dr'] * torch.sin(params['Cr'] * torch.arctan(params['Br'] * alpha_r))
         else:
             tire_forces = torch.zeros((3), device=device)
-            alpha_f = states[STEERING_ANGLE] - torch.arctan((states[YAW_RATE]*self.params['lf'] + states[VY])/states[VX])
-            alpha_r = torch.arctan((states[YAW_RATE] * self.params['lr'] - states[VY])/states[VX])
-            tire_forces[FRX] = self.params['Cm'] * control_inputs[DRIVE_FORCE] - self.params['Cr0'] - self.params['Cr2'] * states[VX]**2.0
-            tire_forces[FFY] = self.params['Df'] * torch.sin(self.params['Cf'] * torch.arctan(self.params['Bf'] * alpha_f))
-            tire_forces[FRY] = self.params['Dr'] * torch.sin(self.params['Cr'] * torch.arctan(self.params['Br'] * alpha_r))
+            alpha_f = states[STEERING_ANGLE] - torch.arctan((states[YAW_RATE]*params['lf'] + states[VY])/states[VX])
+            alpha_r = torch.arctan((states[YAW_RATE] * params['lr'] - states[VY])/states[VX])
+            tire_forces[FRX] = params['Cm'] * control_inputs[DRIVE_FORCE] - params['Cr0'] - params['Cr2'] * states[VX]**2.0
+            tire_forces[FFY] = params['Df'] * torch.sin(params['Cf'] * torch.arctan(params['Bf'] * alpha_f))
+            tire_forces[FRY] = params['Dr'] * torch.sin(params['Cr'] * torch.arctan(params['Br'] * alpha_r))
         return tire_forces
 
 
-    def forward(self, states, control_inputs):
+    def forward(self, states, control_inputs, params: ParameterSample):
         """ Get the evaluated ODEs of the state at this point
 
         Args:
@@ -92,21 +103,21 @@ class DynamicBicycle(Dynamics, nn.Module):
         batch_mode = True if len(states.shape)==2 else False
         
         diff = torch.zeros_like(states)
-        tire_forces = self.calculate_tire_forces(states, control_inputs)
+        tire_forces = self.calculate_tire_forces(states, control_inputs, params)
         if batch_mode:
             diff[:, X] = states[:, VX] * torch.cos(states[:, YAW]) - states[:, VY] * torch.sin(states[:, YAW])
             diff[:, Y] = states[:, VX] * torch.sin(states[:, YAW]) - states[:, VY] * torch.cos(states[:, YAW])
             diff[:, YAW] = states[:, YAW_RATE]
-            diff[:, VX] = 1.0 / self.params['mass'] * (tire_forces[:, FRX] - tire_forces[:, FFY] * torch.sin(states[:, STEERING_ANGLE]) + states[:, VY] * states[:, YAW_RATE] * self.params['mass'])
-            diff[:, VY] = 1.0 / self.params['mass'] * (tire_forces[:, FRY] + tire_forces[:, FFY] * torch.cos(states[:, STEERING_ANGLE]) - states[:, VX] * states[:, YAW_RATE] * self.params['mass'])
-            diff[:, YAW_RATE] = 1.0 / self.params['Iz'] * (tire_forces[:, FFY] * self.params['lf'] * torch.cos(states[:, STEERING_ANGLE]) - tire_forces[:, FRY] * self.params['lr'])
+            diff[:, VX] = 1.0 / params['mass'] * (tire_forces[:, FRX] - tire_forces[:, FFY] * torch.sin(states[:, STEERING_ANGLE]) + states[:, VY] * states[:, YAW_RATE] * params['mass'])
+            diff[:, VY] = 1.0 / params['mass'] * (tire_forces[:, FRY] + tire_forces[:, FFY] * torch.cos(states[:, STEERING_ANGLE]) - states[:, VX] * states[:, YAW_RATE] * params['mass'])
+            diff[:, YAW_RATE] = 1.0 / params['Iz'] * (tire_forces[:, FFY] * params['lf'] * torch.cos(states[:, STEERING_ANGLE]) - tire_forces[:, FRY] * params['lr'])
             diff[:, STEERING_ANGLE] = control_inputs[:, STEER_SPEED]
         else:
             diff[X] = states[VX] * torch.cos(states[YAW]) - states[VY] * torch.sin(states[YAW])
             diff[Y] = states[VX] * torch.sin(states[YAW]) - states[VY] * torch.cos(states[YAW])
             diff[YAW] = states[YAW_RATE]
-            diff[VX] = 1.0 / self.params['mass'] * (tire_forces[FRX] - tire_forces[FFY] * torch.sin(states[STEERING_ANGLE]) + states[VY] * states[YAW_RATE] * self.params['mass'])
-            diff[VY] = 1.0 / self.params['mass'] * (tire_forces[FRY] + tire_forces[FFY] * torch.cos(states[STEERING_ANGLE]) - states[VX] * states[YAW_RATE] * self.params['mass'])
-            diff[YAW_RATE] = 1.0 / self.params['Iz'] * (tire_forces[FFY] * self.params['lf'] * torch.cos(states[STEERING_ANGLE]) - tire_forces[FRY] * self.params['lr'])
+            diff[VX] = 1.0 / params['mass'] * (tire_forces[FRX] - tire_forces[FFY] * torch.sin(states[STEERING_ANGLE]) + states[VY] * states[YAW_RATE] * params['mass'])
+            diff[VY] = 1.0 / params['mass'] * (tire_forces[FRY] + tire_forces[FFY] * torch.cos(states[STEERING_ANGLE]) - states[VX] * states[YAW_RATE] * params['mass'])
+            diff[YAW_RATE] = 1.0 / params['Iz'] * (tire_forces[FFY] * params['lf'] * torch.cos(states[STEERING_ANGLE]) - tire_forces[FRY] * params['lr'])
             diff[STEERING_ANGLE] = control_inputs[STEER_SPEED]
         return diff
