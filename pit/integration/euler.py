@@ -9,6 +9,10 @@ class Euler(nn.Module):
         self.timestep = timestep
         self.include_initial_state = include_initial_state
 
+    def check_for_nans(self, tensor, name):
+        if torch.isnan(tensor).any():
+            print(f"NaNs detected in {name}")
+
     def forward(self, initial_state, control_inputs):
         """
         We integrate the specified dynamics
@@ -40,31 +44,41 @@ class Euler(nn.Module):
 
         if batch_mode:
             diff = self.dynamics(initial_state, control_inputs[:,0])
+            self.check_for_nans(diff, "diff (initial batch)")
             #state = torch.zeros((B, state_dims))
             state = initial_state + diff * self.timestep
+            self.check_for_nans(state, "state (initial batch)")
             integrated_states.append(state)
 
             for i in range(1, control_inputs.shape[1]):
                 #state = torch.zeros((B, state_dims))
                 diff = self.dynamics(integrated_states[-1], control_inputs[:,i])
+                self.check_for_nans(diff, f"diff (batch step {i})")
                 state = integrated_states[-1] + diff * self.timestep
+                self.check_for_nans(state, f"state (batch step {i})")
                 integrated_states.append(state)
             integrated_states = torch.stack(integrated_states, dim=1)
+            self.check_for_nans(integrated_states, "integrated_states (batch)")
             #assert(list(integrated_states.shape) == [control_inputs.shape[0], control_inputs.shape[1], state_dims])
         
         else:
             diff = self.dynamics(initial_state, control_inputs[0])
+            self.check_for_nans(diff, "diff (initial)")
             #state = torch.zeros((state_dims))
             state = initial_state + diff * self.timestep
+            self.check_for_nans(state, "state (initial)")
             integrated_states.append(state)
 
             for i in range(1, control_inputs.shape[0]):
                 diff = self.dynamics(integrated_states[-1], control_inputs[i])
                 #state = torch.zeros((state_dims))
+                self.check_for_nans(diff, f"diff (step {i})")
                 state = integrated_states[-1] + diff * self.timestep
+                self.check_for_nans(state, f"state (step {i})")
                 integrated_states.append(state)
             
             integrated_states = torch.stack(integrated_states, dim=0)
+            self.check_for_nans(integrated_states, "integrated_states")
             #assert(list(integrated_states.shape) == [control_inputs.shape[0], state_dims])
         
         

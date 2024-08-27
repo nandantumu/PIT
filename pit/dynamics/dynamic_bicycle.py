@@ -73,6 +73,26 @@ class DynamicBicycle(Dynamics, nn.Module):
         
         diff = torch.zeros_like(states)
         tire_forces = self.calculate_tire_forces(states, control_inputs)
+        if torch.isnan(tire_forces).any():
+            # Handle the case when tire forces return NaN
+            # Check for specific parameters causing the blow-up
+            if torch.isnan(states).any() or torch.isnan(control_inputs).any():
+               print("NaN encountered in states or control_inputs.")
+               print("states:", states)
+               print("control_inputs:", control_inputs)
+            if torch.isnan(self.Cm).any() or torch.isnan(self.Cr0).any() or torch.isnan(self.Cr2).any():
+                raise ValueError("NaN encountered in Cm, Cr0, or Cr2.")
+            if torch.isnan(self.Df).any() or torch.isnan(self.Cf).any() or torch.isnan(self.Bf).any():
+                raise ValueError("NaN encountered in Df, Cf, or Bf.")
+            if torch.isnan(self.Dr).any() or torch.isnan(self.Cr).any() or torch.isnan(self.Br).any():
+                raise ValueError("NaN encountered in Dr, Cr, or Br.")
+            if torch.isnan(self.lf).any() or torch.isnan(self.lr).any() or torch.isnan(self.mass).any():
+                raise ValueError("NaN encountered in lf, lr, or mass.")
+            if torch.isnan(self.Iz).any():
+                raise ValueError("NaN encountered in Iz.")
+             
+            # Add your desired handling logic here
+
         if batch_mode:
             diff[:, X] = states[:, VX] * torch.cos(states[:, YAW]) - states[:, VY] * torch.sin(states[:, YAW])
             diff[:, Y] = states[:, VX] * torch.sin(states[:, YAW]) - states[:, VY] * torch.cos(states[:, YAW])
