@@ -9,8 +9,9 @@ class Unicycle(Dynamics, nn.Module):
     """
     def __init__(self) -> None:
         super().__init__()
+        self.parameter_list = ['null']
 
-    def forward(self, states, control_inputs):
+    def forward(self, states, control_inputs, params):
         """ Get the evaluated ODEs of the state at this point
 
         Args:
