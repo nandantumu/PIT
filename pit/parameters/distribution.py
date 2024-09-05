@@ -17,7 +17,7 @@ class ScaleTril(nn.Module):
 class Positive(nn.Module):
     """Module to ensure that a parameter is non-negative"""
     def forward(self, x):
-        return F.relu(x) + 1e-6
+        return F.softplus(x)
 
 class CovariantNormalParameterGroup(AbstractParameterGroup):
     """This class represents a group of parameters that are drawn from a multivariate normal distribution."""
@@ -78,44 +78,6 @@ class CovariantNormalParameterGroup(AbstractParameterGroup):
     #         self.distribution.covariance_matrix = self.distribution.covariance_matrix.to(*args, **kwargs)
     #     if self.distribution.precision_matrix is not None:
     #         self.distribution.precision_matrix = self.distribution.precision_matrix.to(*args, **kwargs)
-
-# class CovariantNormalParameterGroup(nn.Module):
-#     def __init__(self, parameter_list: list, initial_value: dict=None):
-#         super().__init__()
-#         self.parameter_list = parameter_list
-#         self.parameter_lookup = {param: i for i, param in enumerate(parameter_list)}
-#         self.num_params = len(parameter_list)
-
-#         self.loc = nn.Parameter(torch.tensor([initial_value[item] if initial_value and item in initial_value else 0.0 for item in parameter_list]))
-#         self.covariance = nn.Parameter(torch.eye(self.num_params))
-#         self.distribution = torch.distributions.MultivariateNormal(self.loc, self.covariance)
-#         # self.refresh_sample()
-               
-#     def __getitem__(self, key):
-#         return self.distribution.rsample()[self.parameter_lookup[key]].to(self.loc.device)
-    
-#     def refresh_sample(self):
-#         self.sample = self.distribution.rsample().to(self.loc.device)
-
-#     # def __setitem__(self, key, value):
-#     #     self.params[key] = nn.Parameter(torch.tensor(value))
-
-#     def to(self, *args, **kwargs):
-#         super().to(*args, **kwargs)
-#         # self.distribution = torch.distributions.MultivariateNormal(self.loc, self.covariance)
-#         self.distribution._unbroadcasted_scale_tril = self.distribution._unbroadcasted_scale_tril.to(*args, **kwargs)
-#         self.distribution.loc = self.distribution.loc.to(*args, **kwargs)
-#         if self.distribution.scale_tril is not None:
-#             self.distribution.scale_tril = self.distribution.scale_tril.to(*args, **kwargs)
-#         if self.distribution.covariance_matrix is not None:
-#             self.distribution.covariance_matrix = self.distribution.covariance_matrix.to(*args, **kwargs)
-#         if self.distribution.precision_matrix is not None:
-#             self.distribution.precision_matrix = self.distribution.precision_matrix.to(*args, **kwargs)
-
-#     # def forward(self):
-#     #     return {
-#     #         param: self.loc[self.parameter_lookup[param]] for param in self.parameter_list
-#     #     }
     
 class NormalParameterGroup(AbstractParameterGroup):
     """This class represents a group of parameters that are drawn from a normal distribution."""
