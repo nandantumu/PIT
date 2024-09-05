@@ -9,7 +9,7 @@ class RK4(nn.Module):
         super().__init__()
         self.dynamics = dynamics
         if parameters is None:
-            self.model_params = PointParameterGroup([self.dynamics.parameter_list])
+            self.model_params = PointParameterGroup(self.dynamics.parameter_list)
         else:
             self.model_params = parameters
         self.timestep = timestep
