@@ -37,6 +37,16 @@ class CovariantNormalParameterGroup(AbstractParameterGroup):
         st = self.scale_tril(self.raw_covariance, self.n)
         return st @ st.T
     
+    def disable_gradients(self, parameter_name: str):
+        if parameter_name not in self.parameter_lookup:
+            raise ValueError(f"Parameter {parameter_name} not found in parameter list.")
+        self.loc[self.parameter_lookup[parameter_name]].requires_grad = False
+    
+    def enable_gradients(self, parameter_name: str):
+        if parameter_name not in self.parameter_lookup:
+            raise ValueError(f"Parameter {parameter_name} not found in parameter list.")
+        self.loc[self.parameter_lookup[parameter_name]].requires_grad = True
+    
     def apply_initial_value(self, initial_value: dict):
         self.loc.data = torch.tensor([initial_value[item] if item in initial_value else 0.0 for item in self.parameter_list])
         if 'covariance' in initial_value:

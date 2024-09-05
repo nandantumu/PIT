@@ -25,6 +25,14 @@ class AbstractParameterGroup(nn.Module):
     def num_params(self):
         return len(self.parameter_list)
 
+    def disable_gradients(self, parameter_name: str):
+        """This function should disable gradients for the given parameter."""
+        raise NotImplementedError
+    
+    def enable_gradients(self, parameter_name: str):
+        """This function should enable gradients for the given parameter."""
+        raise NotImplementedError
+
     def initialize_parameters(self):
         """This function should initialize the parameters of this object."""
         raise NotImplementedError

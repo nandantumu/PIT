@@ -13,6 +13,12 @@ class PointParameterGroup(AbstractParameterGroup):
         self.params = nn.ParameterDict()
         for param in self.parameter_list:
             self.params[param] = nn.Parameter(torch.tensor(0.0))
+
+    def disable_gradients(self, parameter_name: str):
+        self.params[parameter_name].requires_grad = False
+
+    def enable_gradients(self, parameter_name: str):
+        self.params[parameter_name].requires_grad = True
     
     def apply_initial_value(self, initial_value: dict):
         for param in self.parameter_list:
