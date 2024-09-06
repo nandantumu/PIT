@@ -37,12 +37,12 @@ class Euler(nn.Module):
         input_dims = control_inputs.shape[-1]
         if batch_mode:
             B, L, _ = control_inputs.shape
-            params = self.model_params.sample_parameters(B)
+            params = self.model_params.draw_parameters(B)
             if time_deltas is None:
                 time_deltas = torch.ones((B, L), device=initial_state.device) * self.timestep
         else:
             L, _ = control_inputs.shape
-            params = self.model_params.sample_parameters()
+            params = self.model_params.draw_parameters()
             if time_deltas is None:
                 time_deltas = torch.ones((L), device=initial_state.device) * self.timestep
 
@@ -54,13 +54,13 @@ class Euler(nn.Module):
         if batch_mode:
             diff = self.dynamics(initial_state, control_inputs[:,0], params)
             #state = torch.zeros((B, state_dims))
-            state = initial_state + diff * time_deltas[:,0]
+            state = initial_state + diff * time_deltas[:,0].unsqueeze(1)
             integrated_states.append(state)
 
             for i in range(1, control_inputs.shape[1]):
                 #state = torch.zeros((B, state_dims))
                 diff = self.dynamics(integrated_states[-1], control_inputs[:,i], params)
-                state = integrated_states[-1] + diff * time_deltas[:,i]
+                state = integrated_states[-1] + diff * time_deltas[:,i].unsqueeze(1)
                 integrated_states.append(state)
             integrated_states = torch.stack(integrated_states, dim=1)
             #assert(list(integrated_states.shape) == [control_inputs.shape[0], control_inputs.shape[1], state_dims])
