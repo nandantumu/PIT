@@ -43,7 +43,7 @@ class SingleTrack(Dynamics, nn.Module):
             diff[:, X] = states[:, V] * torch.cos(states[:, YAW] + states[:, SLIP_ANGLE])
             diff[:, Y] = states[:, V] * torch.sin(states[:, YAW] + states[:, SLIP_ANGLE])
             diff[:, YAW] = (states[:, V] * torch.tan(control_inputs[:, CONTROL_STEER_ANGLE])) / (params['lf'] + params['lr'])
-            diff[:, V] = control_inputs[ACCEL]
+            diff[:, V] = control_inputs[:, ACCEL]
             diff[:, YAW_RATE] = ((params['mu'] * params['m']) / (params['Iz'] * (params['lf'] + params['lr']))) * (
                 params['lf'] * params['Csf'] * (self.g * params['lr'] - control_inputs[:, ACCEL] * params['hcg']) * control_inputs[:, CONTROL_STEER_ANGLE]
                 + (params['lr'] * params['Csr'] * (self.g * params['lf'] + control_inputs[:, ACCEL] * params['hcg'])
