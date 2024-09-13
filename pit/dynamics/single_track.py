@@ -58,7 +58,7 @@ class SingleTrack(Dynamics, nn.Module):
                 - (params['Csr'] * (self.g * params['lf'] + control_inputs[:, ACCEL] * params['hcg']) + params['Csf'] * (self.g * params['lr'] - control_inputs[:, ACCEL] * params['hcg'])) * states[:, SLIP_ANGLE]
                 + (params['Csr'] * (self.g * params['lf'] + control_inputs[:, ACCEL] * params['hcg']) * params['lr']
                 - params['Csf'] * (self.g * params['lr'] - control_inputs[:, ACCEL] * params['hcg']) * params['lf'])
-                * (states[YAW_RATE] / states[V])
+                * (states[:, YAW_RATE] / states[:, V])
             ) - states[:, YAW_RATE]
         else:
             diff[X] = states[V] * torch.cos(states[YAW] + states[SLIP_ANGLE])
