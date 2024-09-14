@@ -42,7 +42,7 @@ class SingleTrack(Dynamics, nn.Module):
         if batch_mode:
             diff[:, X] = states[:, V] * torch.cos(states[:, YAW] + states[:, SLIP_ANGLE])
             diff[:, Y] = states[:, V] * torch.sin(states[:, YAW] + states[:, SLIP_ANGLE])
-            diff[:, YAW] = (states[:, V] * torch.tan(control_inputs[:, CONTROL_STEER_ANGLE])) / (params['lf'] + params['lr'])
+            diff[:, YAW] = states[:, YAW_RATE]
             diff[:, V] = control_inputs[:, ACCEL]
             glr = self.g*params['lr'] - control_inputs[:, ACCEL] * params['hcg']
             glf = self.g*params['lf'] + control_inputs[:, ACCEL] * params['hcg']
@@ -66,7 +66,7 @@ class SingleTrack(Dynamics, nn.Module):
         else:
             diff[X] = states[V] * torch.cos(states[YAW] + states[SLIP_ANGLE])
             diff[Y] = states[V] * torch.sin(states[YAW] + states[SLIP_ANGLE])
-            diff[YAW] = (states[V] * torch.tan(control_inputs[CONTROL_STEER_ANGLE])) / (params['lf'] + params['lr'])
+            diff[YAW] = states[YAW_RATE]
             diff[V] = control_inputs[ACCEL]
             glr = self.g*params['lr'] - control_inputs[ACCEL] * params['hcg']
             glf = self.g*params['lf'] + control_inputs[ACCEL] * params['hcg']
