@@ -1,4 +1,5 @@
 from . import Dynamics
+from ..parameters.definitions import ParameterSample
 
 import torch
 from torch import nn
@@ -36,3 +37,23 @@ class Bicycle(Dynamics, nn.Module):
             diff[V] = control_inputs[ACCEL]
         return diff
 
+
+def kinematic_bicycle(states, control_inputs, params: ParameterSample):
+    """Get the evaluated ODEs of the state at this point
+
+    Args:
+        states (): Shape of (B, 5) or (5)
+        control_inputs (): Shape of (B, 2) or (2)
+    """
+    X, Y, THETA, V, YAW = 0, 1, 2, 3, 4
+    STEER, ACCEL = 0, 1
+
+    beta = torch.atan(torch.tan(states[..., THETA]) * (params['lr']/(params['lf']+params['lr'])))
+
+    diff = torch.zeros_like(states)
+    diff[..., X] = states[..., V]  * torch.cos(states[..., THETA] + beta)
+    diff[..., Y] = states[..., V]  * torch.sin(states[..., THETA] + beta)
+    diff[..., THETA] = control_inputs[..., STEER]
+    diff[..., V] = control_inputs[..., ACCEL]
+    diff[..., YAW] = torch.cos(beta) * torch.tan(states[..., THETA]) / (params['lf']+params['lr'])
+    return diff

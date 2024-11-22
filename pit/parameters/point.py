@@ -12,7 +12,7 @@ class PointParameterGroup(AbstractParameterGroup):
     def initialize_parameters(self):
         self.params = nn.ParameterDict()
         for param in self.parameter_list:
-            self.params[param] = nn.Parameter(torch.tensor(0.0))
+            self.params[param] = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))
 
     def disable_gradients(self, parameter_name: str):
         self.params[parameter_name].requires_grad = False
@@ -22,7 +22,7 @@ class PointParameterGroup(AbstractParameterGroup):
     
     def apply_initial_value(self, initial_value: dict):
         for param in self.parameter_list:
-            self.params[param].data = torch.tensor(initial_value[param] if param in initial_value else 0.0)
+            self.params[param].data = torch.tensor(initial_value[param] if param in initial_value else 0.0, dtype=torch.float64)
     
     def get_evaluation_sample(self, batch_size: int=1):
         return ParameterSample(

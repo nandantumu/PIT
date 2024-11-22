@@ -39,54 +39,29 @@ class SingleTrack(Dynamics, nn.Module):
         X, Y, V, YAW, YAW_RATE, SLIP_ANGLE = 0, 1, 2, 3, 4, 5
         CONTROL_STEER_ANGLE, ACCEL = 0, 1
         diff = torch.zeros_like(states)
-        if batch_mode:
-            diff[:, X] = states[:, V] * torch.cos(states[:, YAW] + states[:, SLIP_ANGLE])
-            diff[:, Y] = states[:, V] * torch.sin(states[:, YAW] + states[:, SLIP_ANGLE])
-            diff[:, YAW] = states[:, YAW_RATE]
-            diff[:, V] = control_inputs[:, ACCEL]
-            glr = self.g*params['lr'] - control_inputs[:, ACCEL] * params['hcg']
-            glf = self.g*params['lf'] + control_inputs[:, ACCEL] * params['hcg']
-            diff[:, YAW_RATE] = ((params['mu'] * params['m']) / (params['Iz'] * (params['lf'] + params['lr']))) * (
-                params['lf'] * params['Csf'] * glr * control_inputs[:, CONTROL_STEER_ANGLE]
-                + (
-                    params['lr'] * params['Csr'] * glf - params['lf'] * params['Csf'] * glr
-                ) * states[:, SLIP_ANGLE]
-                - (
-                    params['lf'] * params['lf'] * params['Csf'] * glr + params['lr'] * params['lr'] * params['Csr'] * glf
-                ) * (states[:, YAW_RATE] / states[:, V])
-            )
-            
-            diff[:, SLIP_ANGLE] = (params['mu'] / (states[:, V] * (params['lr'] + params['lf']))) * (
-                params['Csf'] * glr * control_inputs[:, CONTROL_STEER_ANGLE]
-                - (params['Csr'] * glf + params['Csf'] * glr) * states[:, SLIP_ANGLE]
-                + (
-                    params['Csr'] * glf * params['lr'] - params['Csf'] * glr * params['lf']
-                ) * (states[:, YAW_RATE] / states[:, V])
-            ) - states[:, YAW_RATE]
-        else:
-            diff[X] = states[V] * torch.cos(states[YAW] + states[SLIP_ANGLE])
-            diff[Y] = states[V] * torch.sin(states[YAW] + states[SLIP_ANGLE])
-            diff[YAW] = states[YAW_RATE]
-            diff[V] = control_inputs[ACCEL]
-            glr = self.g*params['lr'] - control_inputs[ACCEL] * params['hcg']
-            glf = self.g*params['lf'] + control_inputs[ACCEL] * params['hcg']
-            diff[YAW_RATE] = ((params['mu'] * params['m']) / (params['Iz'] * (params['lf'] + params['lr']))) * (
-                params['lf'] * params['Csf'] * glr * control_inputs[CONTROL_STEER_ANGLE]
-                + (
-                    params['lr'] * params['Csr'] * glf - params['lf'] * params['Csf'] * glr
-                ) * states[SLIP_ANGLE]
-                - (
-                    params['lf'] * params['lf'] * params['Csf'] * glr + params['lr'] * params['lr'] * params['Csr'] * glf
-                ) * (states[YAW_RATE] / states[V])
-            )
-            
-            diff[SLIP_ANGLE] = (params['mu'] / (states[V] * (params['lr'] + params['lf']))) * (
-                params['Csf'] * glr * control_inputs[CONTROL_STEER_ANGLE] \
-                - (params['Csr'] * glf + params['Csf'] * glr) * states[SLIP_ANGLE]
-                + (
-                    params['Csr'] * glf * params['lr'] - params['Csf'] * glr * params['lf']
-                ) * (states[YAW_RATE] / states[V])
-            ) - states[YAW_RATE]
+        diff[..., X] = states[..., V] * torch.cos(states[..., YAW] + states[..., SLIP_ANGLE])
+        diff[..., Y] = states[..., V] * torch.sin(states[..., YAW] + states[..., SLIP_ANGLE])
+        diff[..., YAW] = states[..., YAW_RATE]
+        diff[..., V] = control_inputs[..., ACCEL]
+        glr = self.g*params['lr'] - control_inputs[..., ACCEL] * params['hcg']
+        glf = self.g*params['lf'] + control_inputs[..., ACCEL] * params['hcg']
+        diff[..., YAW_RATE] = ((params['mu'] * params['m']) / (params['Iz'] * (params['lf'] + params['lr']))) * (
+            params['lf'] * params['Csf'] * glr * control_inputs[..., CONTROL_STEER_ANGLE]
+            + (
+                params['lr'] * params['Csr'] * glf - params['lf'] * params['Csf'] * glr
+            ) * states[..., SLIP_ANGLE]
+            - (
+                params['lf'] * params['lf'] * params['Csf'] * glr + params['lr'] * params['lr'] * params['Csr'] * glf
+            ) * (states[..., YAW_RATE] / states[..., V])
+        )
+        
+        diff[..., SLIP_ANGLE] = (params['mu'] / (states[..., V] * (params['lr'] + params['lf']))) * (
+            params['Csf'] * glr * control_inputs[..., CONTROL_STEER_ANGLE]
+            - (params['Csr'] * glf + params['Csf'] * glr) * states[..., SLIP_ANGLE]
+            + (
+                params['Csr'] * glf * params['lr'] - params['Csf'] * glr * params['lf']
+            ) * (states[..., YAW_RATE] / states[..., V])
+        ) - states[..., YAW_RATE]
 
         return diff 
 
