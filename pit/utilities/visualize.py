@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-def visualize_data(data_dict, axs=None, color='b'):
+
+def visualize_data(data_dict, axs=None, color="b"):
     axs_specified = True if axs is not None else False
     if axs is None:
         fig, axs = plt.subplots(6, 2, figsize=(15, 10), constrained_layout=True)
@@ -65,7 +66,7 @@ def visualize_data(data_dict, axs=None, color='b'):
     axs[3, 1].set_xlabel("Time (s)")
     axs[3, 1].set_ylabel("Acceleration (m/s^2)")
     axs[3, 1].grid()
-    
+
     try:
         # Plot steering velocity
         axs[4, 0].plot(time, data_dict["steering_velocity"], color=color)
@@ -103,7 +104,6 @@ def visualize_data(data_dict, axs=None, color='b'):
         pass
     except ValueError:
         pass
-
 
     if not axs_specified:
         plt.show()
