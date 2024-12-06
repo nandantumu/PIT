@@ -1,6 +1,7 @@
 import torch
 from ..loss import yaw_normalized_loss, yaw_normalized_loss_per_item
 from ..data.filtering import create_filter, filter_batched_data
+from tqdm.auto import trange
 
 
 def find_near_optimal_mu(
@@ -27,25 +28,120 @@ def find_near_optimal_mu(
         float: The near-optimal mu value calculated based on the given batched data and integrator.
     """
     # Filter the batched data
-    filter = create_filter(batched_target_states)
-    filtered_batched_initial_states = batched_initial_states[filter]
-    filtered_batched_control_inputs = batched_control_inputs[filter]
-    filtered_batched_delta_times = batched_delta_times[filter]
-    filtered_batched_target_states = batched_target_states[filter]
+    (
+        filtered_batched_initial_states,
+        filtered_batched_control_inputs,
+        filtered_batched_delta_times,
+        filtered_batched_target_states,
+    ) = filter_batched_data(
+        batched_initial_states,
+        batched_control_inputs,
+        batched_delta_times,
+        batched_target_states,
+    )
 
+    return mu_search(
+        filtered_batched_initial_states,
+        filtered_batched_control_inputs,
+        filtered_batched_delta_times,
+        filtered_batched_target_states,
+        integrator,
+        range=range,
+        num_samples=num_samples,
+    )
+
+
+def mu_search(
+    batched_initial_states,
+    batched_control_inputs,
+    batched_delta_times,
+    batched_target_states,
+    integrator,
+    range=(0.1, 1.0),
+    num_samples=100,
+):
     mu_values = torch.linspace(range[0], range[1], num_samples)
     losses = torch.zeros_like(mu_values)
     for i, mu in enumerate(mu_values):
         integrator.model_params.params["mu"] = torch.tensor(mu)
         with torch.no_grad():
-            filtered_batched_output_states = integrator(
-                filtered_batched_initial_states,
-                filtered_batched_control_inputs,
-                filtered_batched_delta_times,
+            batched_output_states = integrator(
+                batched_initial_states,
+                batched_control_inputs,
+                batched_delta_times,
             )
-            loss = yaw_normalized_loss(
-                filtered_batched_output_states, filtered_batched_target_states
-            )
+            loss = yaw_normalized_loss(batched_output_states, batched_target_states)
         losses[i] = loss
     min_loss, min_index = torch.min(losses, 0)
     return mu_values[min_index.item()]
+
+
+def gradient_search_for_mu(
+    batched_initial_states,
+    batched_control_inputs,
+    batched_delta_times,
+    batched_target_states,
+    integrator,
+    range=(0.1, 1.0),
+    num_samples=100,
+    batch_size=1024,
+    lr=10.0,
+    epochs: int = 100,
+):
+    # Filter the batched data
+    (
+        filtered_batched_initial_states,
+        filtered_batched_control_inputs,
+        filtered_batched_delta_times,
+        filtered_batched_target_states,
+    ) = filter_batched_data(
+        batched_initial_states,
+        batched_control_inputs,
+        batched_delta_times,
+        batched_target_states,
+    )
+    dataset = torch.utils.data.TensorDataset(
+        filtered_batched_initial_states,
+        filtered_batched_control_inputs,
+        filtered_batched_target_states,
+        filtered_batched_delta_times,
+    )
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1024, shuffle=True)
+    initial_mu_guess = mu_search(
+        filtered_batched_initial_states,
+        filtered_batched_control_inputs,
+        filtered_batched_delta_times,
+        filtered_batched_target_states,
+        integrator,
+        range=range,
+        num_samples=num_samples,
+    )
+
+    for param in ["mu"]:
+        try:
+            integrator.model_params.enable_gradients(param)
+        except AttributeError:
+            pass
+
+    integrator.model_params.params["mu"] = torch.tensor(initial_mu_guess)
+    optimizer = torch.optim.SGD(integrator.parameters(), lr=lr, momentum=0.8)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, patience=10, factor=0.9
+    )
+
+    for i in trange(epochs):
+        for initial, inputs, targets, dts in dataloader:
+            integrator.train()
+            optimizer.zero_grad()
+            output_states = integrator(initial, inputs, dts)
+            loss = yaw_normalized_loss(output_states, targets)
+            loss.backward()
+            optimizer.step()
+        with torch.no_grad():
+            output_states = integrator(
+                batched_initial_states, batched_control_inputs, batched_delta_times
+            )
+            val_loss = yaw_normalized_loss(output_states, batched_target_states)
+        scheduler.step(val_loss)
+
+    return integrator.model_params.params["mu"]

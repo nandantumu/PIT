@@ -4,24 +4,33 @@ import torch
 
 
 def filter_batched_data(
-    batched_data, yaw_index=4, vel_index=3, yaw_threshold=None, vel_threshold=None
-):
-    """Filter the batched data based on the yaw rate and velocity thresholds.
+    batched_initial_states: torch.Tensor,
+    batched_control_inputs: torch.Tensor,
+    batched_delta_times: torch.Tensor,
+    batched_target_states: torch.Tensor,
+) -> tuple:
+    """Filter the batched data based on the target states.
 
     Args:
-        batched_data (torch.Tensor): The batched data.
-        yaw_index (int, optional): The index of the yaw rate in the data. Defaults to 4.
-        vel_index (int, optional): The index of the velocity in the data. Defaults to 3.
-        yaw_threshold (float, optional): The yaw rate threshold. Defaults to None.
-        vel_threshold (float, optional): The velocity threshold. Defaults to None.
+        batched_initial_states (torch.Tensor): The initial states of the batch.
+        batched_control_inputs (torch.Tensor): The control inputs for the batch.
+        batched_delta_times (torch.Tensor): The time deltas for the batch.
+        batched_target_states (torch.Tensor): The target states for the batch.
 
     Returns:
-        torch.Tensor: The filtered batched data.
+        tuple: Filtered batched initial states, control inputs, delta times, and target states.
     """
-    filter = create_filter(
-        batched_data, yaw_index, vel_index, yaw_threshold, vel_threshold
+    filter = create_filter(batched_target_states)
+    filtered_batched_initial_states = batched_initial_states[filter]
+    filtered_batched_control_inputs = batched_control_inputs[filter]
+    filtered_batched_delta_times = batched_delta_times[filter]
+    filtered_batched_target_states = batched_target_states[filter]
+    return (
+        filtered_batched_initial_states,
+        filtered_batched_control_inputs,
+        filtered_batched_delta_times,
+        filtered_batched_target_states,
     )
-    return batched_data[filter]
 
 
 def create_filter(
