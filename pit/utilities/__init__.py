@@ -8,4 +8,4 @@ from .data import (
 
 from .loss import yaw_normalized_loss, yaw_normalized_loss_per_item
 
-from .visualize import plot_states, plot_controls, plot_loss, plot_batched_states
+from .visualize import visualize_data, position_and_slip_viz
