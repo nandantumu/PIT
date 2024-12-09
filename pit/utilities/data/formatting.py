@@ -48,22 +48,20 @@ def create_single_track_states_and_controls(data_dict):
             data_dict["slip_angle"][0],
         ]
     )
-    control_inputs = np.array(
-        [data_dict["steering_angle"], data_dict["acceleration"]], dtype=np.float64
+
+    control_inputs = torch.vstack(
+        [data_dict["steering_angle"], data_dict["acceleration"]]
     ).T
     control_inputs = torch.tensor(control_inputs[:-1])
-    output_states = torch.tensor(
-        np.array(
-            [
-                data_dict["x"],
-                data_dict["y"],
-                data_dict["velocity"],
-                data_dict["yaw"],
-                data_dict["yaw_rate"],
-                data_dict["slip_angle"],
-            ],
-            dtype=np.float64,
-        )
+    output_states = torch.vstack(
+        [
+            data_dict["x"],
+            data_dict["y"],
+            data_dict["velocity"],
+            data_dict["yaw"],
+            data_dict["yaw_rate"],
+            data_dict["slip_angle"],
+        ]
     ).T
     target_states = output_states[1:]
     delta_times = data_dict["dt"]
