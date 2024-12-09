@@ -25,7 +25,8 @@ def find_near_optimal_mu(
         num_samples (int, optional): The number of mu samples to evaluate. Defaults to 100.
 
     Returns:
-        float: The near-optimal mu value calculated based on the given batched data and integrator.
+        float: The optimal mu value calculated based on the given batched data and integrator.
+        tuple: A tuple containing the mu values and losses for each mu value.
     """
     # Filter the batched data
     (
@@ -60,6 +61,22 @@ def mu_search(
     range=(0.1, 1.0),
     num_samples=100,
 ):
+    """
+    Perform a search for the optimal mu value for the given batched data.
+
+    Args:
+        batched_initial_states (torch.Tensor): The initial states of the batch.
+        batched_control_inputs (torch.Tensor): The control inputs for the batch.
+        batched_delta_times (torch.Tensor): The time deltas for the batch.
+        batched_target_states (torch.Tensor): The target states for the batch.
+        integrator (Integrator): The integrator to use for processing the batched data.
+        range (tuple, optional): The range of mu values to sample. Defaults to (0.1, 1.0).
+        num_samples (int, optional): The number of mu samples to evaluate. Defaults to 100.
+
+    Returns:
+        float: The optimal mu value calculated based on the given batched data and integrator.
+        tuple: A tuple containing the mu values and losses for each mu value.
+    """
     mu_values = torch.linspace(range[0], range[1], num_samples)
     losses = torch.zeros_like(mu_values)
     for i, mu in enumerate(mu_values):
@@ -73,7 +90,7 @@ def mu_search(
             loss = yaw_normalized_loss(batched_output_states, batched_target_states)
         losses[i] = loss
     min_loss, min_index = torch.min(losses, 0)
-    return mu_values[min_index.item()]
+    return mu_values[min_index.item()], (mu_values, losses)
 
 
 def gradient_search_for_mu(
@@ -88,6 +105,25 @@ def gradient_search_for_mu(
     lr=10.0,
     epochs: int = 100,
 ):
+    """
+    Perform gradient-based search to estimate the friction coefficient (mu) for a given integrator model.
+
+    Args:
+        batched_initial_states (torch.Tensor): Batched initial states of the system.
+        batched_control_inputs (torch.Tensor): Batched control inputs applied to the system.
+        batched_delta_times (torch.Tensor): Batched time intervals between states.
+        batched_target_states (torch.Tensor): Batched target states to be achieved.
+        integrator (Integrator): The integrator model used for state prediction.
+        range (tuple, optional): The range of mu values to search within. Defaults to (0.1, 1.0).
+        num_samples (int, optional): Number of samples to use in the initial mu search. Defaults to 100.
+        batch_size (int, optional): Batch size for data loading. Defaults to 1024.
+        lr (float, optional): Learning rate for the optimizer. Defaults to 10.0.
+        epochs (int, optional): Number of training epochs. Defaults to 100.
+
+    Returns:
+        torch.Tensor: The estimated friction coefficient (mu).
+        tuple: A tuple containing the mu values and corresponding losses from the initial search.
+    """
     # Filter the batched data
     (
         filtered_batched_initial_states,
@@ -107,7 +143,7 @@ def gradient_search_for_mu(
         filtered_batched_delta_times,
     )
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1024, shuffle=True)
-    initial_mu_guess = mu_search(
+    initial_mu_guess, (mu_values, losses) = mu_search(
         filtered_batched_initial_states,
         filtered_batched_control_inputs,
         filtered_batched_delta_times,
@@ -144,4 +180,4 @@ def gradient_search_for_mu(
             val_loss = yaw_normalized_loss(output_states, batched_target_states)
         scheduler.step(val_loss)
 
-    return integrator.model_params.params["mu"]
+    return integrator.model_params.params["mu"], (mu_values, losses)

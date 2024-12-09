@@ -134,3 +134,22 @@ def position_and_slip_viz(data_dict, FREQ=100):
     plt.grid()
     plt.gca().set_aspect("equal", adjustable="box")
     plt.show()
+
+
+def plot_mu_landscape(mu_values, losses):
+    fig, ax = plt.subplots(1, 1, figsize=(10, 4))
+    # Find Minimum Loss
+    min_loss = min(losses)
+    min_loss_index = np.argmin(losses)
+    ax.plot(mu_values, losses, label="Loss")
+    ax.set_xlabel("$\mu$")
+    ax.set_ylabel("Loss")
+    ax.set_title("Loss vs $\mu$ for High Yaw Rate")
+    ax.axvline(
+        x=mu_values[min_loss_index],
+        linestyle="--",
+        label="Min loss @ {:.2f}".format(mu_values[min_loss_index]),
+    )
+    # ax.set_yscale('symlog')
+    plt.legend()
+    plt.show()
