@@ -150,6 +150,6 @@ def plot_mu_landscape(mu_values, losses):
         linestyle="--",
         label="Min loss @ {:.2f}".format(mu_values[min_loss_index]),
     )
-    # ax.set_yscale('symlog')
+    ax.set_yscale("symlog")
     plt.legend()
-    plt.show()
+    return fig, ax
