@@ -21,7 +21,7 @@ def filter_batched_data(
     Returns:
         tuple: Filtered batched initial states, control inputs, delta times, and target states.
     """
-    filter = create_filter(batched_target_states)
+    filter = create_filter(batched_target_states, batched_delta_times)
     filtered_batched_initial_states = batched_initial_states[filter]
     filtered_batched_control_inputs = batched_control_inputs[filter]
     filtered_batched_delta_times = batched_delta_times[filter]
@@ -44,7 +44,13 @@ def filter_batched_data(
 
 
 def create_filter(
-    batched_data, yaw_index=4, vel_index=3, yaw_threshold=0.8, vel_threshold=0.1
+    batched_data,
+    batched_delta_times,
+    yaw_index=4,
+    vel_index=3,
+    yaw_threshold=None,
+    vel_threshold=0.1,
+    time_threshold=0.1,
 ):
     """Create a filter based on the yaw rate and velocity thresholds.
 
@@ -54,6 +60,7 @@ def create_filter(
         vel_index (int): The index of the velocity in the data.
         yaw_threshold (float): The yaw rate threshold.
         vel_threshold (float): The velocity threshold.
+
 
     Returns:
         torch.Tensor: The filter for the batched data.
@@ -71,14 +78,30 @@ def create_filter(
         vel_filter = min_vel_per_item >= vel_abs_threshold
     else:
         vel_filter = torch.ones(batched_data.shape[0], dtype=torch.bool)
+    if time_threshold is not None:
+        max_delta_time_per_item = calculate_max_delta_time_per_item(batched_delta_times)
+        time_filter = max_delta_time_per_item <= time_threshold
+    else:
+        time_filter = torch.ones(batched_data.shape[0], dtype=torch.bool)
+    return yaw_filter & vel_filter & time_filter
 
-    return yaw_filter & vel_filter
 
-
-def select_yaw_rate_threshold(batched_data, yaw_index=4, yaw_threshold=0.8):
+def select_yaw_rate_threshold(batched_data, yaw_index=4, yaw_threshold=0.5):
     """This method selects 100 or the top 20% of the yaw rates as the yaw rate threshold."""
     max_yr_per_item = calculate_max_yaw_rate_per_item(batched_data, yaw_index=yaw_index)
     return torch.quantile(max_yr_per_item, yaw_threshold)
+
+
+def calculate_max_delta_time_per_item(batched_delta_times):
+    """Calculate the maximum delta time per item in the batched delta times.
+
+    Args:
+        batched_delta_times (torch.Tensor): The batched delta times.
+
+    Returns:
+        torch.Tensor: The maximum delta time per item in the batched delta times.
+    """
+    return torch.max(batched_delta_times, dim=1).values
 
 
 def calculate_max_yaw_rate_per_item(batched_target_states, yaw_index=4):
