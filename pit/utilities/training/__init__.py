@@ -12,6 +12,7 @@ def find_near_optimal_mu(
     integrator,
     range=(0.1, 1.0),
     num_samples=100,
+    logger=None,
 ):
     """Find the near-optimal mu for the given batched data.
 
@@ -39,6 +40,7 @@ def find_near_optimal_mu(
         batched_control_inputs,
         batched_delta_times,
         batched_target_states,
+        logger=logger,
     )
 
     return mu_search(
@@ -49,6 +51,7 @@ def find_near_optimal_mu(
         integrator,
         range=range,
         num_samples=num_samples,
+        logger=logger,
     )
 
 
@@ -60,6 +63,7 @@ def mu_search(
     integrator,
     range=(0.1, 1.0),
     num_samples=100,
+    logger=None,
 ):
     """
     Perform a search for the optimal mu value for the given batched data.
@@ -104,6 +108,7 @@ def gradient_search_for_mu(
     batch_size=1024,
     lr=10.0,
     epochs: int = 100,
+    logger=None,
 ):
     """
     Perform gradient-based search to estimate the friction coefficient (mu) for a given integrator model.
@@ -135,6 +140,7 @@ def gradient_search_for_mu(
         batched_control_inputs,
         batched_delta_times,
         batched_target_states,
+        logger=logger,
     )
     dataset = torch.utils.data.TensorDataset(
         filtered_batched_initial_states,
@@ -151,6 +157,7 @@ def gradient_search_for_mu(
         integrator,
         range=range,
         num_samples=num_samples,
+        logger=logger,
     )
 
     for param in ["mu"]:

@@ -8,6 +8,7 @@ def filter_batched_data(
     batched_control_inputs: torch.Tensor,
     batched_delta_times: torch.Tensor,
     batched_target_states: torch.Tensor,
+    logger=None,
 ) -> tuple:
     """Filter the batched data based on the target states.
 
@@ -25,6 +26,15 @@ def filter_batched_data(
     filtered_batched_control_inputs = batched_control_inputs[filter]
     filtered_batched_delta_times = batched_delta_times[filter]
     filtered_batched_target_states = batched_target_states[filter]
+
+    if logger is not None:
+        # Log the number of items filtered
+        num_items = batched_initial_states.shape[0]
+        num_filtered_items = num_items - filtered_batched_initial_states.shape[0]
+        logger(
+            f"Filtered {num_filtered_items} items out of {num_items}. There are {filtered_batched_initial_states.shape[0]} items remaining."
+        )
+
     return (
         filtered_batched_initial_states,
         filtered_batched_control_inputs,
