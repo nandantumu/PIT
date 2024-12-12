@@ -104,9 +104,10 @@ def gradient_search_for_mu(
     batched_target_states,
     integrator,
     range=(0.1, 1.0),
+    initial_mu_guess=0.1,
     num_samples=100,
     batch_size=1024,
-    lr=10.0,
+    lr=0.1,
     epochs: int = 100,
     logger=None,
 ):
@@ -149,16 +150,20 @@ def gradient_search_for_mu(
         filtered_batched_delta_times,
     )
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1024, shuffle=True)
-    initial_mu_guess, (mu_values, losses) = mu_search(
-        filtered_batched_initial_states,
-        filtered_batched_control_inputs,
-        filtered_batched_delta_times,
-        filtered_batched_target_states,
-        integrator,
-        range=range,
-        num_samples=num_samples,
-        logger=logger,
-    )
+    if initial_mu_guess is None:
+        initial_mu_guess, (mu_values, losses) = mu_search(
+            filtered_batched_initial_states,
+            filtered_batched_control_inputs,
+            filtered_batched_delta_times,
+            filtered_batched_target_states,
+            integrator,
+            range=range,
+            num_samples=num_samples,
+            logger=logger,
+        )
+    else:
+        mu_values = None
+        losses = None
 
     for param in ["mu"]:
         try:
@@ -172,7 +177,11 @@ def gradient_search_for_mu(
         optimizer, patience=10, factor=0.9
     )
 
+    losses = torch.zeros(epochs)
+    val_losses = torch.zeros(epochs)
+
     for i in trange(epochs):
+        batch_losses = 0
         for initial, inputs, targets, dts in dataloader:
             integrator.train()
             optimizer.zero_grad()
@@ -180,11 +189,14 @@ def gradient_search_for_mu(
             loss = yaw_normalized_loss(output_states, targets)
             loss.backward()
             optimizer.step()
+            batch_losses += loss.item() / initial.shape[0]
+        losses[i] = batch_losses
         with torch.no_grad():
             output_states = integrator(
                 batched_initial_states, batched_control_inputs, batched_delta_times
             )
             val_loss = yaw_normalized_loss(output_states, batched_target_states)
+            val_losses[i] = val_loss / len(dataloader)
         scheduler.step(val_loss)
 
-    return integrator.model_params.params["mu"], (mu_values, losses)
+    return integrator.model_params.params["mu"], (losses, val_losses)

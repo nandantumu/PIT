@@ -1,6 +1,7 @@
 """This file contains filtering approaches for batched data."""
 
 import torch
+import numpy as np
 
 
 def filter_batched_data(
@@ -49,8 +50,9 @@ def create_filter(
     yaw_index=4,
     vel_index=3,
     yaw_threshold=None,
-    vel_threshold=0.1,
+    vel_threshold=0.5,
     time_threshold=0.1,
+    slip_angle_threshold=(np.pi / 180) * 30,
 ):
     """Create a filter based on the yaw rate and velocity thresholds.
 
@@ -83,7 +85,32 @@ def create_filter(
         time_filter = max_delta_time_per_item <= time_threshold
     else:
         time_filter = torch.ones(batched_data.shape[0], dtype=torch.bool)
-    return yaw_filter & vel_filter & time_filter
+    if slip_angle_threshold is not None:
+        min_slip_angle_per_item = calculate_min_slip_angle_per_item(
+            batched_data, slip_angle_index=5
+        )
+        max_slip_angle_per_item = calculate_max_slip_angle_per_item(
+            batched_data, slip_angle_index=5
+        )
+        slip_angle_filter = (min_slip_angle_per_item >= -slip_angle_threshold) & (
+            max_slip_angle_per_item <= slip_angle_threshold
+        )
+    # Ensure that the derivative of the yaw rate is not 0
+    yr_deriv = (batched_data[:, 1:, 4] - batched_data[:, :-1, 4]) / batched_delta_times[
+        :, 1:
+    ]
+    mean_yr_deriv = torch.mean(torch.abs(yr_deriv), dim=1)
+    yr_deriv_filter = mean_yr_deriv >= 0.05
+    # Ensure that the yaw_rate is greater than 0
+    yaw_rate_filter = torch.min(torch.abs(batched_data[:, :, 4]), dim=1).values > 0.5
+    return (
+        yaw_filter
+        & vel_filter
+        & time_filter
+        & slip_angle_filter
+        # & yr_deriv_filter
+        & yaw_rate_filter
+    )
 
 
 def select_yaw_rate_threshold(batched_data, yaw_index=4, yaw_threshold=0.5):
@@ -115,6 +142,32 @@ def calculate_max_yaw_rate_per_item(batched_target_states, yaw_index=4):
         torch.Tensor: The maximum yaw rate per item in the batched target states.
     """
     return torch.max(torch.abs(batched_target_states[:, :, yaw_index]), dim=1).values
+
+
+def calculate_min_slip_angle_per_item(batched_target_states, slip_angle_index=5):
+    """Calculate the minimum slip angle per item in the batched target states.
+
+    Args:
+        batched_target_states (torch.Tensor): The batched target states.
+        slip_angle_index (int, optional): The index of the slip angle in the target states. Defaults to 5.
+
+    Returns:
+        torch.Tensor: The minimum slip angle per item in the batched target states.
+    """
+    return torch.min(batched_target_states[:, :, slip_angle_index], dim=1).values
+
+
+def calculate_max_slip_angle_per_item(batched_target_states, slip_angle_index=5):
+    """Calculate the maximum slip angle per item in the batched target states.
+
+    Args:
+        batched_target_states (torch.Tensor): The batched target states.
+        slip_angle_index (int, optional): The index of the slip angle in the target states. Defaults to 5.
+
+    Returns:
+        torch.Tensor: The maximum slip angle per item in the batched target states.
+    """
+    return torch.max(batched_target_states[:, :, slip_angle_index], dim=1).values
 
 
 def calculate_min_vel_per_item(batched_target_states, vel_index=3):
