@@ -96,13 +96,13 @@ def create_filter(
             max_slip_angle_per_item <= slip_angle_threshold
         )
     # Ensure that the derivative of the yaw rate is not 0
-    yr_deriv = (batched_data[:, 1:, 4] - batched_data[:, :-1, 4]) / batched_delta_times[
-        :, 1:
-    ]
-    mean_yr_deriv = torch.mean(torch.abs(yr_deriv), dim=1)
-    yr_deriv_filter = mean_yr_deriv >= 0.05
+    # yr_deriv = (batched_data[:, 1:, 4] - batched_data[:, :-1, 4]) / batched_delta_times[
+    #     :, 1:
+    # ]
+    # mean_yr_deriv = torch.mean(torch.abs(yr_deriv), dim=1)
+    # yr_deriv_filter = mean_yr_deriv >= 0.05
     # Ensure that the yaw_rate is greater than 0
-    yaw_rate_filter = torch.min(torch.abs(batched_data[:, :, 4]), dim=1).values > 0.5
+    yaw_rate_filter = torch.min(torch.abs(batched_data[:, :, 4]), dim=1).values > 0.2
     return (
         yaw_filter
         & vel_filter

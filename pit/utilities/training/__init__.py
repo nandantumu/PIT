@@ -149,7 +149,10 @@ def gradient_search_for_mu(
         filtered_batched_target_states,
         filtered_batched_delta_times,
     )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1024, shuffle=True)
+    try:
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=1024, shuffle=True)
+    except ValueError:
+        return float(initial_mu_guess), (None, None)
     if initial_mu_guess is None:
         initial_mu_guess, (mu_values, losses) = mu_search(
             filtered_batched_initial_states,
@@ -164,6 +167,7 @@ def gradient_search_for_mu(
     else:
         mu_values = None
         losses = None
+        initial_mu_guess = torch.tensor(initial_mu_guess, dtype=torch.float64)
 
     for param in ["mu"]:
         try:
