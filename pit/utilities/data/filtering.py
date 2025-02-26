@@ -79,7 +79,7 @@ def create_filter(
         vel_abs_threshold = select_yaw_rate_threshold(batched_data, yaw_index=yaw_index)
         vel_filter = min_vel_per_item >= vel_abs_threshold
     else:
-        vel_filter = torch.ones(batched_data.shape[0], dtype=torch.bool)
+        vel_filter = torch.ones(batched_data.shape[0], dtype=torch.bool) 
     if time_threshold is not None:
         max_delta_time_per_item = calculate_max_delta_time_per_item(batched_delta_times)
         time_filter = max_delta_time_per_item <= time_threshold

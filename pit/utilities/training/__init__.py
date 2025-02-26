@@ -191,6 +191,8 @@ def gradient_search_for_mu(
             optimizer.zero_grad()
             output_states = integrator(initial, inputs, dts)
             loss = yaw_normalized_loss(output_states, targets)
+            # Eliminate the Nan values from the loss, only calculate on the valid values
+            loss = loss[~torch.isnan(loss)]
             loss.backward()
             optimizer.step()
             batch_losses += loss.item() / initial.shape[0]
