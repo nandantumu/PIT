@@ -68,8 +68,8 @@ def import_data(data_path):
 def create_batched_track_states_and_controls(
     initial_state,
     control_inputs,
-    target_states,
     output_states,
+    target_states,
     delta_times,
     step_size,
     ticks_in_step,
