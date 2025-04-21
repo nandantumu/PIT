@@ -34,7 +34,7 @@ class PointParameterGroup(AbstractParameterGroup):
                 torch.stack(
                     [self.params[param].data for param in self.parameter_list]
                 ).reshape(-1, 1),
-                (1, batch_size),
+                (1, batch_size)
             ),
             self.parameter_lookup,
         )

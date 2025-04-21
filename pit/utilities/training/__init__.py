@@ -81,10 +81,12 @@ def mu_search(
         float: The optimal mu value calculated based on the given batched data and integrator.
         tuple: A tuple containing the mu values and losses for each mu value.
     """
-    mu_values = torch.linspace(range[0], range[1], num_samples)
+    mu_values = torch.linspace(
+        range[0], range[1], num_samples, device=batched_delta_times.device
+    )
     losses = torch.zeros_like(mu_values)
     for i, mu in enumerate(mu_values):
-        integrator.model_params.params["mu"] = torch.tensor(mu)
+        integrator.model_params.params["mu"] = torch.tensor(mu, device=batched_delta_times.device)
         with torch.no_grad():
             batched_output_states = integrator(
                 batched_initial_states,
@@ -167,7 +169,9 @@ def gradient_search_for_mu(
     else:
         mu_values = None
         losses = None
-        initial_mu_guess = torch.tensor(initial_mu_guess, dtype=torch.float64)
+        initial_mu_guess = torch.tensor(
+            initial_mu_guess, dtype=torch.float64, device=batched_delta_times.device
+        )
 
     for param in ["mu"]:
         try:
@@ -175,7 +179,9 @@ def gradient_search_for_mu(
         except AttributeError:
             pass
 
-    integrator.model_params.params["mu"] = torch.tensor(initial_mu_guess)
+    integrator.model_params.params["mu"] = torch.tensor(
+        initial_mu_guess, device=batched_delta_times.device
+    )
     optimizer = torch.optim.SGD(integrator.parameters(), lr=lr, momentum=0.8)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, patience=10, factor=0.9

@@ -73,18 +73,24 @@ def create_filter(
         )
         yaw_filter = max_yr_per_item <= yaw_threshold
     else:
-        yaw_filter = torch.ones(batched_data.shape[0], dtype=torch.bool)
+        yaw_filter = torch.ones(
+            batched_data.shape[0], dtype=torch.bool, device=batched_data.device
+        )
     if vel_threshold is not None:
         min_vel_per_item = calculate_min_vel_per_item(batched_data, vel_index=vel_index)
         vel_abs_threshold = select_yaw_rate_threshold(batched_data, yaw_index=yaw_index)
         vel_filter = min_vel_per_item >= vel_abs_threshold
     else:
-        vel_filter = torch.ones(batched_data.shape[0], dtype=torch.bool) 
+        vel_filter = torch.ones(
+            batched_data.shape[0], dtype=torch.bool, device=batched_data.device
+        )
     if time_threshold is not None:
         max_delta_time_per_item = calculate_max_delta_time_per_item(batched_delta_times)
         time_filter = max_delta_time_per_item <= time_threshold
     else:
-        time_filter = torch.ones(batched_data.shape[0], dtype=torch.bool)
+        time_filter = torch.ones(
+            batched_data.shape[0], dtype=torch.bool, device=batched_data.device
+        )
     if slip_angle_threshold is not None:
         min_slip_angle_per_item = calculate_min_slip_angle_per_item(
             batched_data, slip_angle_index=5
