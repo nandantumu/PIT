@@ -1,2 +1,3 @@
 from .distribution import CovariantNormalParameterGroup, NormalParameterGroup
-from .point import PointParameterGroup
+from .point import PointParameterGroup, ResidualPointParameterGroup
+from .restricted import BoundedParameterGroup

@@ -11,11 +11,10 @@ class SingleTrack(Dynamics, nn.Module):
     Link: https://gitlab.lrz.de/tum-cps/commonroad-vehicle-models/-/blob/master/vehicleModels_commonRoad.pdf
     """
 
-    def __init__(self, l, m, Iz, lf, lr, hcg, Csf, Csr, mu, **kwargs) -> None:
+    def __init__(self, m, Iz, lf, lr, hcg, Csf, Csr, mu, **kwargs) -> None:
         super().__init__()
-        self.parameter_list = ["l", "m", "Iz", "lf", "lr", "hcg", "Csf", "Csr", "mu"]
+        self.parameter_list = ["m", "Iz", "lf", "lr", "hcg", "Csf", "Csr", "mu"]
         self.initial_values = {
-            "l": l,
             "m": m,
             "Iz": Iz,
             "lf": lf,

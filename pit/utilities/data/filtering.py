@@ -32,7 +32,7 @@ def filter_batched_data(
         # Log the number of items filtered
         num_items = batched_initial_states.shape[0]
         num_filtered_items = num_items - filtered_batched_initial_states.shape[0]
-        logger(
+        logger.info(
             f"Filtered {num_filtered_items} items out of {num_items}. There are {filtered_batched_initial_states.shape[0]} items remaining."
         )
 
@@ -108,14 +108,11 @@ def create_filter(
     # mean_yr_deriv = torch.mean(torch.abs(yr_deriv), dim=1)
     # yr_deriv_filter = mean_yr_deriv >= 0.05
     # Ensure that the yaw_rate is greater than 0
-    yaw_rate_filter = torch.min(torch.abs(batched_data[:, :, 4]), dim=1).values > 0.2
+    # yaw_rate_filter = torch.min(torch.abs(batched_data[:, :, 4]), dim=1).values > 0.2
     return (
-        yaw_filter
-        & vel_filter
-        & time_filter
-        & slip_angle_filter
+        yaw_filter & vel_filter & time_filter & slip_angle_filter
         # & yr_deriv_filter
-        & yaw_rate_filter
+        # & yaw_rate_filter
     )
 
 
