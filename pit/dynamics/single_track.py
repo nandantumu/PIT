@@ -25,6 +25,7 @@ class SingleTrack(Dynamics, nn.Module):
             "mu": mu,
         }
         self.g = 9.81
+        self.numeric_stability_constant = 1e-10
 
     def forward(self, states, control_inputs, params: ParameterSample):
         """Get the evaluated ODEs of the state at this point
@@ -63,7 +64,10 @@ class SingleTrack(Dynamics, nn.Module):
                 params["lf"] * params["lf"] * params["Csf"] * glr
                 + params["lr"] * params["lr"] * params["Csr"] * glf
             )
-            * (states[..., YAW_RATE] / states[..., V])
+            * (
+                states[..., YAW_RATE]
+                / (self.numeric_stability_constant + states[..., V])
+            )
         )
 
         diff[..., SLIP_ANGLE] = (
@@ -72,7 +76,10 @@ class SingleTrack(Dynamics, nn.Module):
             params["Csf"] * glr * control_inputs[..., CONTROL_STEER_ANGLE]
             - (params["Csr"] * glf + params["Csf"] * glr) * states[..., SLIP_ANGLE]
             + (params["Csr"] * glf * params["lr"] - params["Csf"] * glr * params["lf"])
-            * (states[..., YAW_RATE] / states[..., V])
+            * (
+                states[..., YAW_RATE]
+                / (self.numeric_stability_constant + states[..., V])
+            )
         ) - states[..., YAW_RATE]
 
         return diff

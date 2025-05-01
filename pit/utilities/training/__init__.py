@@ -7,9 +7,7 @@ import numpy as np
 try:
     import cma
 except ImportError as e:
-    raise ImportError(
-        "Please install the 'cma' package (pip install cma) to use CMA-ES functionality."
-    ) from e
+    pass
 
 
 def find_near_optimal_mu(

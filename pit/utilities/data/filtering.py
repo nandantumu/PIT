@@ -184,3 +184,25 @@ def calculate_min_vel_per_item(batched_target_states, vel_index=3):
         torch.Tensor: The minimum velocity per item in the batched target states.
     """
     return torch.min(batched_target_states[:, :, vel_index], dim=1).values
+
+def calculate_max_distance_between_items(
+    batched_target_states, x_index=0, y_index=1
+):
+    """Calculate the maximum distance between items in the batched target states.
+
+    Args:
+        batched_target_states (torch.Tensor): The batched target states.
+        x_index (int, optional): The index of the x-coordinate in the target states. Defaults to 0.
+        y_index (int, optional): The index of the y-coordinate in the target states. Defaults to 1.
+
+    Returns:
+        torch.Tensor: The maximum distance between items in the batched target states.
+    """
+    # Calculate the distance between each pair of items
+    distances = torch.cdist(
+        batched_target_states[:, :, [x_index, y_index]],
+        batched_target_states[:, :, [x_index, y_index]],
+    )
+    # Get the maximum distance for each item
+    max_distances = torch.max(distances, dim=1).values
+    return max_distances
