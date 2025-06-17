@@ -5,7 +5,7 @@ import torch
 from torch import nn
 
 
-class SingleTrack(Dynamics, nn.Module):
+class NeuralODE(Dynamics, nn.Module):
     """
     This is the Single Track model, from the CommonRoad paper.
     Link: https://gitlab.lrz.de/tum-cps/commonroad-vehicle-models/-/blob/master/vehicleModels_commonRoad.pdf
