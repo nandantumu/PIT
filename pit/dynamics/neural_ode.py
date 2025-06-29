@@ -27,7 +27,7 @@ class NeuralODE(Dynamics, nn.Module):
             nn.Linear(hidden_dims, state_dims),
         )
 
-    def forward(self, states, control_inputs, params: ParameterSample):
+    def forward(self, states, control_inputs, *args, **kwargs):
         """Get the evaluated ODEs of the state at this point
 
         Args:
@@ -38,10 +38,11 @@ class NeuralODE(Dynamics, nn.Module):
         """
         # Get the parameters for the neural network from the parameter sample
         input = torch.cat([states, control_inputs], dim=-1)
-        hidden_dims = self.params["layer_0_w"] @ input + self.params["layer_0_b"]
-        for i in range(1, len(self.params) // 2):
-            hidden_dims = torch.relu(
-                self.params[f"layer_{i}_w"] @ hidden_dims + self.params[f"layer_{i}_b"]
-            )
-        output = self.params["layer_out_w"] @ hidden_dims + self.params["layer_out_b"]
+        # hidden_dims = self.params["layer_0_w"] @ input + self.params["layer_0_b"]
+        # for i in range(1, len(self.params) // 2):
+        #     hidden_dims = torch.relu(
+        #         self.params[f"layer_{i}_w"] @ hidden_dims + self.params[f"layer_{i}_b"]
+        #     )
+        # output = self.params["layer_out_w"] @ hidden_dims + self.params["layer_out_b"]
+        output = self.network(input)
         return output

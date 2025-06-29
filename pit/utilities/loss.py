@@ -3,12 +3,12 @@ import torch
 
 def yaw_normalized_loss(output_states, target_states):
     normal_loss_p1 = torch.nn.functional.l1_loss(
-        output_states[..., :3], target_states[..., :3]
+        output_states[..., :3], target_states[..., :3], reduction="sum"
     )
     normal_loss_p2 = torch.nn.functional.l1_loss(
-        output_states[..., 4:], target_states[..., 4:]
+        output_states[..., 4:], target_states[..., 4:], reduction="sum"
     )
-    angular_loss = torch.mean(
+    angular_loss = torch.sum(
         torch.abs(
             torch.atan2(
                 torch.sin(output_states[..., 3] - target_states[..., 3]),

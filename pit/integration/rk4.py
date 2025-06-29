@@ -1,5 +1,8 @@
+from typing import Union
+
 import torch
 from torch import nn
+
 from ..parameters.definitions import AbstractParameterGroup
 from ..parameters.point import PointParameterGroup
 
@@ -10,13 +13,15 @@ class RK4(nn.Module):
     def __init__(
         self,
         dynamics,
-        parameters: AbstractParameterGroup = None,
+        parameters: Union[AbstractParameterGroup, str] = None,
         timestep=0.10,
         include_initial_state=False,
     ) -> None:
         super().__init__()
         self.dynamics = dynamics
-        if parameters is None:
+        if parameters == "BYPASS":
+            self.model_params = "BYPASS"
+        elif parameters is None:
             self.model_params = PointParameterGroup(self.dynamics.parameter_list)
         else:
             self.model_params = parameters
@@ -45,7 +50,9 @@ class RK4(nn.Module):
         input_dims = control_inputs.shape[-1]
         if batch_mode:
             B, L, _ = control_inputs.shape
-            if params is None:
+            if params == "BYPASS":
+                params = self.model_params
+            elif params is None:
                 params = self.model_params.draw_parameters(B)
             if time_deltas is None:
                 time_deltas = (
@@ -53,7 +60,9 @@ class RK4(nn.Module):
                 )
         else:
             L, _ = control_inputs.shape
-            if params is None:
+            if params == "BYPASS":
+                params = self.model_params
+            elif params is None:
                 params = self.model_params.draw_parameters()
             if time_deltas is None:
                 time_deltas = (
