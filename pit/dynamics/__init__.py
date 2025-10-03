@@ -1,18 +1,17 @@
-import torch
-from torch import nn
+"""Base definitions for dynamics models."""
+
+from __future__ import annotations
+
 from ..parameters.definitions import ParameterSample
 
-class Dynamics(nn.Module):
-    """Base Class for dynamics"""
-    def __init__(self) -> None:
-        super().__init__()
 
-    def forward(self, states, inputs, params: ParameterSample):
-        """
-        Dynamics evolutions
+class Dynamics:
+    """Base class for dynamics models."""
 
-        Args:
-            states: Dimension of (N, state_dims)
-            inputs: Dimension of (N, control_inputs)
-        """
+    parameter_list: list[str]
+
+    def forward(self, states, inputs, params: ParameterSample):  # pragma: no cover - abstract
         raise NotImplementedError
+
+    def __call__(self, states, inputs, params: ParameterSample):
+        return self.forward(states, inputs, params)

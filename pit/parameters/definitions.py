@@ -1,65 +1,68 @@
-import torch
-from torch import nn
+"""Minimal utilities for working with parameter groups."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable
+
+from .._compat import jnp
 
 
+@dataclass(frozen=True)
 class ParameterSample:
-    def __init__(self, parameters: torch.Tensor, parameter_lookup: dict):
-        self.parameters = parameters
-        self.parameter_lookup = parameter_lookup
+    """Dictionary-like container for parameter arrays."""
 
-    def __getitem__(self, key):
-        """This method should return the parameter value(s) for the key in text."""
+    parameters: jnp.ndarray
+    parameter_lookup: Dict[str, int]
+
+    def __getitem__(self, key: str) -> jnp.ndarray:
         return self.parameters[self.parameter_lookup[key]]
 
 
-class AbstractParameterGroup(nn.Module):
-    def __init__(self, parameter_list: list, initial_value: dict=None):
-        super().__init__()
-        self.parameter_list = parameter_list
-        self.parameter_lookup = {param: i for i, param in enumerate(parameter_list)}
+class AbstractParameterGroup:
+    """Tiny base class for parameter groups backed by JAX arrays."""
+
+    def __init__(
+        self,
+        parameter_list: Iterable[str],
+        initial_value: Dict[str, Any] | None = None,
+    ) -> None:
+        self.parameter_list = list(parameter_list)
+        self.parameter_lookup = {name: i for i, name in enumerate(self.parameter_list)}
         self.initialize_parameters()
         if initial_value:
             self.apply_initial_value(initial_value)
-        
+
     @property
-    def num_params(self):
+    def num_params(self) -> int:
         return len(self.parameter_list)
 
-    def disable_gradients(self, parameter_name: str):
-        """This function should disable gradients for the given parameter."""
-        raise NotImplementedError
-    
-    def enable_gradients(self, parameter_name: str):
-        """This function should enable gradients for the given parameter."""
+    # The following methods define the required API for concrete subclasses.
+    def initialize_parameters(self) -> None:  # pragma: no cover - interface definition
         raise NotImplementedError
 
-    def initialize_parameters(self):
-        """This function should initialize the parameters of this object."""
+    def apply_initial_value(self, initial_value: Dict[str, Any]) -> None:  # pragma: no cover - interface definition
         raise NotImplementedError
 
-    def apply_initial_value(self, initial_value: dict):
-        """This function should apply the initial parameter set to this object."""
+    def get_evaluation_sample(self, batch_size: int = 1) -> ParameterSample:  # pragma: no cover - interface definition
         raise NotImplementedError
 
-    def get_evaluation_sample(self, batch_size: int=1) -> ParameterSample:
-        """
-        This method should return a sample of the parameters that can be used for evaluation. 
-        This may be stable over multiple calls.
-        """
+    def sample_parameters(self, batch_size: int = 1) -> ParameterSample:  # pragma: no cover - interface definition
         raise NotImplementedError
 
-    def sample_parameters(self, batch_size: int=1) -> ParameterSample:
-        """
-        This method should return a sample of the parameters that can be used for training.
-        This could return a different sample each time it is called.
-        """
-        raise NotImplementedError
-    
-    def draw_parameters(self, batch_size: int=1) -> ParameterSample:
-        """
-        This method will call the appropriate method based on training state.
-        """
-        if self.training:
-            return self.sample_parameters(batch_size)
-        else:
-            return self.get_evaluation_sample(batch_size)
+    # Backwards compatibility helpers -------------------------------------------------
+    def train(self, mode: bool = True) -> "AbstractParameterGroup":  # pragma: no cover - API compat
+        del mode
+        return self
+
+    def eval(self) -> "AbstractParameterGroup":  # pragma: no cover - API compat
+        return self
+
+    def disable_gradients(self, parameter_name: str) -> None:  # pragma: no cover - API compat
+        del parameter_name
+
+    def enable_gradients(self, parameter_name: str) -> None:  # pragma: no cover - API compat
+        del parameter_name
+
+    def draw_parameters(self, batch_size: int = 1) -> ParameterSample:
+        return self.sample_parameters(batch_size)

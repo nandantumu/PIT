@@ -6,8 +6,9 @@ authors = [{ name = "Nandan Tumu", email = "nandan.t@live.com" }]
 requires-python = "~=3.10"
 readme = "README.md"
 dependencies = [
-    "torch>=2.7.0,<3",
+    "jax>=0.4.31",
     "matplotlib>=3.9.2,<4",
+    "numpy>=1.26",
     "pytest>=8.3.2,<9",
 ]
 

@@ -4,34 +4,21 @@ from __future__ import annotations
 
 from typing import Any, Tuple
 
-import torch
+from .._compat import jnp
 
 
 def _normalize_batch_inputs(
-    initial_state: torch.Tensor,
-    control_inputs: torch.Tensor,
-    time_deltas: torch.Tensor | None,
+    initial_state,
+    control_inputs,
+    time_deltas,
     default_dt: float,
     parameter_group: Any | None = None,
     params_override: Any | None = None,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Any, bool]:
-    """Normalize integration inputs to batched tensors.
+) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, Any, bool]:
+    """Normalize integration inputs to batched arrays."""
 
-    Args:
-        initial_state: Tensor with shape ``(B, state_dims)`` or ``(state_dims,)``.
-        control_inputs: Tensor with shape ``(B, steps, input_dims)`` or
-            ``(steps, input_dims)``.
-        time_deltas: Optional tensor with shape ``(B, steps)`` or ``(steps,)``.
-        default_dt: Default time step to use when ``time_deltas`` is ``None``.
-        parameter_group: Parameter group used to sample parameters, when
-            available.
-        params_override: Optional parameters provided by the caller.
-
-    Returns:
-        Tuple containing normalized tensors for ``initial_state``,
-        ``control_inputs``, ``time_deltas``, the parameters used for dynamics,
-        and a boolean flag indicating whether the original inputs were batched.
-    """
+    initial_state = jnp.asarray(initial_state)
+    control_inputs = jnp.asarray(control_inputs)
 
     if control_inputs.ndim < 2:
         raise ValueError("Control inputs are not in the correct shape")
@@ -39,31 +26,26 @@ def _normalize_batch_inputs(
     was_batched = initial_state.ndim == 2
 
     if not was_batched:
-        initial_state = initial_state.unsqueeze(0)
-        control_inputs = control_inputs.unsqueeze(0)
+        initial_state = jnp.expand_dims(initial_state, axis=0)
+        control_inputs = jnp.expand_dims(control_inputs, axis=0)
 
     batch_size = initial_state.shape[0]
     steps = control_inputs.shape[1]
 
     if time_deltas is None:
-        time_deltas = torch.full(
-            (batch_size, steps),
-            fill_value=default_dt,
-            device=initial_state.device,
-            dtype=initial_state.dtype,
-        )
+        time_deltas = jnp.full((batch_size, steps), default_dt, dtype=initial_state.dtype)
     else:
+        time_deltas = jnp.asarray(time_deltas, dtype=initial_state.dtype)
         if time_deltas.ndim == 1:
-            time_deltas = time_deltas.unsqueeze(0)
+            time_deltas = jnp.expand_dims(time_deltas, axis=0)
         if time_deltas.ndim != 2:
             raise ValueError("time_deltas must have shape (B, L) or (L,)")
         if time_deltas.shape[0] == 1 and batch_size != 1:
-            time_deltas = time_deltas.expand(batch_size, -1)
+            time_deltas = jnp.broadcast_to(time_deltas, (batch_size, time_deltas.shape[1]))
         elif time_deltas.shape[0] != batch_size:
             raise ValueError("time_deltas batch dimension does not match inputs")
         if time_deltas.shape[1] != steps:
             raise ValueError("time_deltas step dimension does not match inputs")
-        time_deltas = time_deltas.to(device=initial_state.device, dtype=initial_state.dtype)
 
     params = None
     if params_override == "BYPASS":
@@ -79,4 +61,3 @@ def _normalize_batch_inputs(
             params = parameter_group.draw_parameters()
 
     return initial_state, control_inputs, time_deltas, params, was_batched
-
