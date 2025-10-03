@@ -36,7 +36,6 @@ class SingleTrack(Dynamics, nn.Module):
             control_inputs (): Shape of (B, 2) or (2)
                 [STEER_V, ACCEL]
         """
-        batch_mode = True if len(states.shape) == 2 else False
         X, Y, STEER, V, YAW, YAW_RATE, SLIP_ANGLE = 0, 1, 2, 3, 4, 5, 6
         STEER_V, ACCEL = 0, 1
         diff = torch.zeros_like(states)
@@ -114,7 +113,6 @@ class SingleTrackMod(Dynamics, nn.Module):
             control_inputs (): Shape of (B, 2) or (2)
                 [STEER_ANGLE, ACCEL]
         """
-        batch_mode = True if len(states.shape) == 2 else False
         X, Y, V, YAW, YAW_RATE, SLIP_ANGLE = 0, 1, 2, 3, 4, 5
         CONTROL_STEER_ANGLE, ACCEL = 0, 1
         diff = torch.zeros_like(states)
