@@ -271,7 +271,6 @@ class SingleTrackDrift(Dynamics, nn.Module):
         # u0 = steering angle velocity of front wheels
         # u1 = longitudinal acceleration
 
-        batch_mode = True if len(states.shape) == 2 else False
         X, Y, STEER_ANGLE, V, YAW, YAW_RATE, SLIP_ANGLE, OMEGA_F, OMEGA_R = (
             0,
             1,
