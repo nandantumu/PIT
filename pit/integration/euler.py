@@ -1,11 +1,25 @@
+"""Euler integration module."""
+
+from __future__ import annotations
+
 import torch
 from torch import nn
+
 from ..parameters.definitions import AbstractParameterGroup
 from ..parameters.point import PointParameterGroup
+from ._utils import _normalize_batch_inputs
+
 
 class Euler(nn.Module):
-    """Module to do Euler integration"""
-    def __init__(self, dynamics, parameters: AbstractParameterGroup=None, timestep=0.10, include_initial_state=False) -> None:
+    """Module to do Euler integration."""
+
+    def __init__(
+        self,
+        dynamics,
+        parameters: AbstractParameterGroup | None = None,
+        timestep=0.10,
+        include_initial_state=False,
+    ) -> None:
         super().__init__()
         self.dynamics = dynamics
         if parameters is None:
@@ -16,69 +30,38 @@ class Euler(nn.Module):
         self.include_initial_state = include_initial_state
 
     def forward(self, initial_state, control_inputs, time_deltas=None):
-        """
-        We integrate the specified dynamics
-        
-        Args:
-            initial_state: Shape of (B, state_dims) or (state_dims)
-            control_inputs: Shape of (B, L, input_dims) or (L, input_dims)
-            time_deltas: Shape of (B, L) or (L)
-        Output:
-            integrated_states: Shape of (B, L, state_dims) or (L, state_dims)
-                (B, L+1, state_dims) or (L+1, state_dims) if including initial state
-        """
-        batch_mode = True if len(initial_state.shape)==2 else False
-        try:
-            assert(len(control_inputs.shape) >= 2)
-        except AssertionError:
-            raise ValueError("Control inputs are not in the correct shape") 
-        
-        state_dims = initial_state.shape[-1]
-        input_dims = control_inputs.shape[-1]
-        if batch_mode:
-            B, L, _ = control_inputs.shape
-            params = self.model_params.draw_parameters(B)
-            if time_deltas is None:
-                time_deltas = torch.ones((B, L), device=initial_state.device) * self.timestep
-        else:
-            L, _ = control_inputs.shape
-            params = self.model_params.draw_parameters()
-            if time_deltas is None:
-                time_deltas = torch.ones((L), device=initial_state.device) * self.timestep
+        """Integrate the dynamics using the Euler method."""
 
-        integrated_states = list()
+        (
+            initial_state,
+            control_inputs,
+            time_deltas,
+            params,
+            was_batched,
+        ) = _normalize_batch_inputs(
+            initial_state,
+            control_inputs,
+            time_deltas,
+            self.timestep,
+            self.model_params,
+        )
 
-        if self.include_initial_state:
-            integrated_states.append(initial_state)
+        current_state = initial_state
+        integrated_states = [current_state]
 
-        if batch_mode:
-            diff = self.dynamics(initial_state, control_inputs[:,0], params)
-            #state = torch.zeros((B, state_dims))
-            state = initial_state + diff * time_deltas[:,0].unsqueeze(1)
-            integrated_states.append(state)
+        for i in range(control_inputs.shape[1]):
+            dt = time_deltas[:, i].unsqueeze(1)
+            control = control_inputs[:, i]
+            diff = self.dynamics(current_state, control, params)
+            current_state = current_state + diff * dt
+            integrated_states.append(current_state)
 
-            for i in range(1, control_inputs.shape[1]):
-                #state = torch.zeros((B, state_dims))
-                diff = self.dynamics(integrated_states[-1], control_inputs[:,i], params)
-                state = integrated_states[-1] + diff * time_deltas[:,i].unsqueeze(1)
-                integrated_states.append(state)
-            integrated_states = torch.stack(integrated_states, dim=1)
-            #assert(list(integrated_states.shape) == [control_inputs.shape[0], control_inputs.shape[1], state_dims])
-        
-        else:
-            diff = self.dynamics(initial_state, control_inputs[0], params)
-            #state = torch.zeros((state_dims))
-            state = initial_state + diff * time_deltas[0]
-            integrated_states.append(state)
+        integrated_states = torch.stack(integrated_states, dim=1)
 
-            for i in range(1, control_inputs.shape[0]):
-                diff = self.dynamics(integrated_states[-1], control_inputs[i], params)
-                #state = torch.zeros((state_dims))
-                state = integrated_states[-1] + diff * time_deltas[i]
-                integrated_states.append(state)
-            
-            integrated_states = torch.stack(integrated_states, dim=0)
-            #assert(list(integrated_states.shape) == [control_inputs.shape[0], state_dims])
-        
-        
+        if not self.include_initial_state:
+            integrated_states = integrated_states[:, 1:]
+
+        if not was_batched:
+            integrated_states = integrated_states.squeeze(0)
+
         return integrated_states
