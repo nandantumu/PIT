@@ -1,102 +1,41 @@
-import torch
-from torch import nn
-from torch.nn import functional as F
+"""Deterministic parameter group backed by JAX arrays."""
+
+from __future__ import annotations
+
+from typing import Dict
+
+from .._compat import jnp
+
 from .definitions import AbstractParameterGroup, ParameterSample
-import warnings
 
 
 class PointParameterGroup(AbstractParameterGroup):
-    """This class represents a group of parameters that are point estimates."""
+    """Parameter group whose values are simple point estimates."""
 
-    def __init__(self, parameter_list: list, initial_value: dict = None):
+    def __init__(self, parameter_list: list, initial_value: dict | None = None):
         super().__init__(parameter_list, initial_value)
 
-    def initialize_parameters(self):
-        self.params = nn.ParameterDict()
-        for param in self.parameter_list:
-            self.params[param] = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))
+    def initialize_parameters(self) -> None:
+        self.params: Dict[str, jnp.ndarray] = {
+            name: jnp.array(0.0, dtype=jnp.float32) for name in self.parameter_list
+        }
 
-    def disable_gradients(self, parameter_name: str):
-        self.params[parameter_name].requires_grad = False
+    def apply_initial_value(self, initial_value: dict) -> None:
+        for name, value in initial_value.items():
+            if name in self.params:
+                self.params[name] = jnp.asarray(value, dtype=jnp.float32)
 
-    def enable_gradients(self, parameter_name: str):
-        self.params[parameter_name].requires_grad = True
+    def _stack_params(self) -> jnp.ndarray:
+        if not self.parameter_list:
+            return jnp.zeros((0,), dtype=jnp.float32)
+        return jnp.stack([self.params[name] for name in self.parameter_list])
 
-    def apply_initial_value(self, initial_value: dict):
-        for param in self.parameter_list:
-            self.params[param].data = torch.tensor(
-                initial_value[param] if param in initial_value else 0.0,
-                dtype=torch.float64,
-            )
+    def get_evaluation_sample(self, batch_size: int = 1) -> ParameterSample:
+        values = self._stack_params()
+        if values.ndim == 0:
+            values = values[None]
+        values = jnp.broadcast_to(values[:, None], (values.shape[0], batch_size))
+        return ParameterSample(values, self.parameter_lookup)
 
-    def get_evaluation_sample(self, batch_size: int = 1):
-        return ParameterSample(
-            torch.tile(
-                torch.stack(
-                    [self.params[param].data for param in self.parameter_list]
-                ).reshape(-1, 1),
-                (1, batch_size),
-            ),
-            self.parameter_lookup,
-        )
-
-    def sample_parameters(self, batch_size: int = 1):
-        return ParameterSample(
-            torch.tile(
-                torch.stack(
-                    [self.params[param] for param in self.parameter_list]
-                ).reshape(-1, 1),
-                (1, batch_size),
-            ),
-            self.parameter_lookup,
-        )
-
-
-class ResidualPointParameterGroup(PointParameterGroup):
-    """This class represents a group of parameters that are point estimates."""
-
-    def __init__(self, parameter_list: list, initial_value: dict = None):
-        super().__init__(parameter_list, initial_value)
-        warnings.warn("This is also enforcing positivity.")
-
-    def initialize_parameters(self):
-        self.baseline = dict()
-        self.params = nn.ParameterDict()
-        for param in self.parameter_list:
-            self.baseline[param] = torch.tensor(0.0, dtype=torch.float64)
-            self.params[param] = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))
-
-    def apply_initial_value(self, initial_value: dict):
-        for param in self.parameter_list:
-            if param in initial_value:
-                self.baseline[param] = torch.tensor(
-                    initial_value[param], dtype=torch.float64
-                )
-
-    def get_evaluation_sample(self, batch_size: int = 1):
-        return ParameterSample(
-            torch.tile(
-                torch.stack(
-                    [
-                        F.softplus(self.baseline[param] + self.params[param].data)
-                        for param in self.parameter_list
-                    ]
-                ).reshape(-1, 1),
-                (1, batch_size),
-            ),
-            self.parameter_lookup,
-        )
-
-    def sample_parameters(self, batch_size: int = 1):
-        return ParameterSample(
-            torch.tile(
-                torch.stack(
-                    [
-                        F.softplus(self.baseline[param] + self.params[param])
-                        for param in self.parameter_list
-                    ]
-                ).reshape(-1, 1),
-                (1, batch_size),
-            ),
-            self.parameter_lookup,
-        )
+    def sample_parameters(self, batch_size: int = 1) -> ParameterSample:
+        return self.get_evaluation_sample(batch_size)

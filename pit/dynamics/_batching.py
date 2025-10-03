@@ -1,34 +1,23 @@
 from __future__ import annotations
 
-from typing import Callable, Tuple, TypeVar
+from typing import Callable, Tuple
 
-import torch
-
-TensorLike = TypeVar("TensorLike", bound=torch.Tensor)
+from .._compat import Array, jnp
 
 
-def ensure_batch(tensor: TensorLike) -> Tuple[TensorLike, Callable[[TensorLike], TensorLike]]:
+def ensure_batch(tensor: Array) -> Tuple[Array, Callable[[Array], Array]]:
     """Ensure a tensor has a batch dimension.
 
-    The helper promotes one-dimensional tensors to batched tensors by
-    unsqueezing a leading dimension.  A callable is returned that can be
-    applied to tensors with the resulting shape to restore the original
-    dimensionality.
-
-    Args:
-        tensor: A tensor with shape ``(dim,)`` or ``(batch, dim)``.
-
-    Returns:
-        A tuple containing the (potentially) batched tensor and a callable to
-        restore tensors with matching shape back to their original
-        dimensionality.
+    Promotes one-dimensional arrays to batched arrays by adding a leading
+    dimension.  A callable is returned that can be applied to arrays with the
+    resulting shape to restore the original dimensionality.
     """
 
     if tensor.ndim == 1:
-        batched = tensor.unsqueeze(0)
+        batched = jnp.expand_dims(tensor, axis=0)
 
-        def restore(result: TensorLike) -> TensorLike:
-            return result.squeeze(0)
+        def restore(result: Array) -> Array:
+            return jnp.squeeze(result, axis=0)
 
         return batched, restore
 
